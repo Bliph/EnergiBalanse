@@ -7,18 +7,18 @@ class TimeBuffer:
     #################################################################
     # Find index for tuple with ts >= provided ts
     #
-    def get_index(self, ts: int, from_idx=0, to_idx=0):
+    def get_index(self, ts: int, from_idx=0, to_idx=None):
 
-        from_idx = max(from_idx, 0)
-        to_idx = min(to_idx, len(self.sorted_list)-1)
-        
         # Empty list: 
         if len(self.sorted_list) <= 0:
             return 0
 
-        # Default: whole list
-        if to_idx <= 0:
+        # Clamp indexes, default: whole list
+        from_idx = min(max(from_idx, 0), len(self.sorted_list)-1)
+        if to_idx is None:
             to_idx = len(self.sorted_list) - 1 
+        else:
+            to_idx = max(min(to_idx, len(self.sorted_list)-1), 0)
 
         # Before first element
         if ts <= self.sorted_list[from_idx][0]:
@@ -32,7 +32,7 @@ class TimeBuffer:
         elif to_idx - from_idx <= 1:
             return to_idx
 
-        # Rcurse
+        # Recurse, binary search
         else:
 
             # Middle index
@@ -60,7 +60,7 @@ class TimeBuffer:
         if overwrite and \
             len(self.sorted_list) > 0 and \
             idx < len(self.sorted_list) and \
-            idx > 0 and \
+            idx >= 0 and \
             self.sorted_list[idx][0] == ts:
             self.sorted_list[idx] = vt
         else:
@@ -92,69 +92,37 @@ class TimeBuffer:
     def crop_interval(self, from_ts=0, to_ts=0):
         self.sorted_list = self.get_interval(from_ts=from_ts, to_ts=to_ts)
 
-    #################################################################
-    # Get value
-    # * 'inter'
-    # * 'pre'
-    # * 'post'
-    #
-    def get_value(self, ts: int, selection='inter'):
-        if len(self.sorted_list) <= 0:
-            return 0
 
-        idx = self.get_index(ts=ts)
-        pre_idx = max(0, idx-1)
-        post_idx = max(0, min(idx, len(self.sorted_list)-1))
+if __name__ == '__main__':
+    import time
+    import random
 
-        pre = self.sorted_list[pre_idx]
-        post = self.sorted_list[post_idx]
+    a = TimeBuffer() 
+    a.insert_sorted(ts = int(time.time()*1000), value='a') 
+    time.sleep(random.random())
+    a.insert_sorted(ts = int(time.time()*1000), value='b') 
+    time.sleep(random.random())
+    a.insert_sorted(ts = int(time.time()*1000), value='c')
 
-        if selection.lower() == 'pre':
-            return pre[1]
-        elif selection.lower() == 'post':
-            return post[1]
-        elif selection.lower() == 'avg':
-            return (post[1]+pre[1])/2
-        elif selection.lower() == 'inter':
-            dt = post[0]-pre[0]
-            dv = post[1]-pre[1]
-            if dt == 0:
-                return pre[1]
-            else:
-                return pre[1] + dv*(ts-pre[0])/dt
-        else:
-            return 0
+    aa = a.get_index(a.sorted_list[1][0]-1)
+    bb = a.get_index(a.sorted_list[1][0])
+    cc = a.get_index(a.sorted_list[1][0]+1)
 
-import time
-import random
+    a.insert_sorted(ts=a.sorted_list[1][0]+1, value='b_post')
+    a.insert_sorted(ts=a.sorted_list[1][0], value='b_at')
+    a.insert_sorted(ts=a.sorted_list[1][0]-1, value='b_pre')
 
-a = TimeBuffer() 
-a.insert_sorted(ts = int(time.time()*1000), value='a') 
-time.sleep(random.random())
-a.insert_sorted(ts = int(time.time()*1000), value='b') 
-time.sleep(random.random())
-a.insert_sorted(ts = int(time.time()*1000), value='c')
+    x = a.get_index(ts=a.sorted_list[-1:][0][0])
 
-aa = a.get_index(a.sorted_list[1][0]-1)
-bb = a.get_index(a.sorted_list[1][0])
-cc = a.get_index(a.sorted_list[1][0]+1)
+    l = a.get_interval()
+    l = a.get_interval(from_ts=a.sorted_list[1][0], to_ts=a.sorted_list[1][0])
+    l = a.get_interval(from_ts=a.sorted_list[1][0], to_ts=a.sorted_list[2][0])
+    l = a.get_interval(from_ts=a.sorted_list[1][0], to_ts=a.sorted_list[3][0])
 
-a.insert_sorted(ts=a.sorted_list[1][0]+1, value='b_post')
-a.insert_sorted(ts=a.sorted_list[1][0], value='b_at')
-a.insert_sorted(ts=a.sorted_list[1][0]-1, value='b_pre')
+    a.sorted_list = []
+    l = a.get_interval(10, 20)
 
-x = a.get_index(ts=a.sorted_list[-1:][0][0])
+    a.insert_sorted(ts=30, value='x')
+    l = a.get_interval(10, 20)
 
-l = a.get_interval()
-l = a.get_interval(from_ts=a.sorted_list[1][0], to_ts=a.sorted_list[1][0])
-l = a.get_interval(from_ts=a.sorted_list[1][0], to_ts=a.sorted_list[2][0])
-l = a.get_interval(from_ts=a.sorted_list[1][0], to_ts=a.sorted_list[3][0])
-
-a.sorted_list = []
-l = a.get_interval(10, 20)
-
-a.insert_sorted(ts=30, value='x')
-l = a.get_interval(10, 20)
-
-pass
-pass
+    pass
