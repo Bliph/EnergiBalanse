@@ -55,6 +55,47 @@ class FloatTimeBuffer(TimeBuffer):
         else:
             return 0
 
+    #################################################################
+    # Integrate value over time
+    #
+    def integrate(self, ts_from: int, ts_to: int):
+
+        idx_from = self.get_index(ts=ts_from)
+        idx_to = min(len(self.sorted_list)-1, self.get_index(ts=ts_to))
+        
+        # End point not at ts
+        if self.sorted_list[idx_to][0] > ts_to:
+            idx_to = max(idx_from, idx_to-1)
+
+        pre_value = self.get_value(ts=ts_from, selection='pre')
+        post_value = self.get_value(ts=ts_to, selection='pre')
+
+        sum = 0
+        for idx in range(idx_from, idx_to):
+            sum += self.sorted_list[idx][1] * (self.sorted_list[idx+1][0] - self.sorted_list[idx][0])
+
+        sum += pre_value * (self.sorted_list[idx_from][0] - ts_from)
+        sum += post_value * (ts_to - self.sorted_list[idx_to][0])
+
+        return sum
+
+    #################################################################
+    # Average value over time
+    #
+    def avg(self, ts_from: int, ts_to: int):
+        
+        dt = ts_to - ts_from
+        if dt == 0:
+            return 0
+        else:
+            return self.integrate(ts_from=ts_from, ts_to=ts_to)/dt
+
+
+
+
+
+
+
 if __name__ == '__main__':
 
     import time
@@ -68,4 +109,21 @@ if __name__ == '__main__':
     x2 = a.get_value(5.5, 'post')
     x3 = a.get_value(5.5, 'avg')
     x4 = a.get_value(5.5, 'inter')
+
+    a = FloatTimeBuffer() 
+    a.insert_sorted(ts=1, value=35) 
+    a.insert_sorted(ts=3, value=234) 
+    a.insert_sorted(ts=4, value=5) 
+    a.insert_sorted(ts=7, value=-5) 
+    a.insert_sorted(ts=8, value=70) 
+    a.insert_sorted(ts=9, value=71) 
+
+    z1 = a.integrate(3, 8)
+    z2 = a.avg(3, 8)
+
+    y0 = a.integrate(0, 3.99)
+    y1 = a.integrate(2.5, 8.2)
+    y2 = a.avg(2.5, 8.2)
+    
     pass
+
