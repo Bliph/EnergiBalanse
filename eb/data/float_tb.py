@@ -1,4 +1,4 @@
-from timebuffer import TimeBuffer
+from .timebuffer import TimeBuffer
 
 class FloatTimeBuffer(TimeBuffer):
 
