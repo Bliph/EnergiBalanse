@@ -7,7 +7,7 @@ class TimeBuffer:
     #################################################################
     # Find index for tuple with ts >= provided ts
     #
-    def get_index(self, ts: int, from_idx=0, to_idx=None):
+    def get_index(self, ts: int, from_idx=0, to_idx=None, valid_read_index=False):
 
         # Empty list: 
         if len(self.sorted_list) <= 0:
@@ -26,8 +26,11 @@ class TimeBuffer:
         
         # After last element
         elif ts > self.sorted_list[to_idx][0]:
-            return to_idx + 1
-        
+            if not valid_read_index:
+                return to_idx + 1
+            else:
+                return to_idx
+
         # Smallest possible interval (int)
         elif to_idx - from_idx <= 1:
             return to_idx
@@ -44,11 +47,11 @@ class TimeBuffer:
             
             # Lower half
             elif ts < self.sorted_list[m_idx][0]:
-                return self.get_index(ts, from_idx=from_idx, to_idx=m_idx)
+                return self.get_index(ts, from_idx=from_idx, to_idx=m_idx, valid_read_index=valid_read_index)
             
             # Upper half
             elif ts > self.sorted_list[m_idx][0]:
-                return self.get_index(ts, from_idx=m_idx, to_idx=to_idx)
+                return self.get_index(ts, from_idx=m_idx, to_idx=to_idx, valid_read_index=valid_read_index)
 
     #################################################################
     # Insert a element and keep list sorted by ts

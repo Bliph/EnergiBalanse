@@ -60,8 +60,11 @@ class FloatTimeBuffer(TimeBuffer):
     #
     def integrate(self, ts_from: int, ts_to: int):
 
-        idx_from = self.get_index(ts=ts_from)
-        idx_to = min(len(self.sorted_list)-1, self.get_index(ts=ts_to))
+        if len(self.sorted_list) <= 0:
+            return 0
+            
+        idx_from = self.get_index(ts=ts_from, valid_read_index=True)
+        idx_to = self.get_index(ts=ts_to, valid_read_index=True)
         
         # End point not at ts
         if self.sorted_list[idx_to][0] > ts_to:

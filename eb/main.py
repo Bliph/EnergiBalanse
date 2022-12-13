@@ -2,22 +2,22 @@ import teslapy
 import time
 from integration.mqtt import MQTTClient
 from data.float_tb import FloatTimeBuffer
+from data.energy_calc import EnergyCalculator
 
 # https://tesla-api.timdorr.com/
 # https://github.com/tdorssers/TeslaPy 
 # https://github.com/nside/pytesla (old)
 
-power_buffer = FloatTimeBuffer()
-energy_buffer = FloatTimeBuffer()
+calculator = EnergyCalculator()
 
 def input(message):
     ts = message.get('payload', {}).get('timestamp')
     p = message.get('payload', {}).get('P_pos')
     e = message.get('payload', {}).get('A_pos')
     if p is not None and ts is not None:
-        power_buffer.insert_sorted(ts=ts, value=p)
+        calculator.insert_power(ts=ts, value=p)
     if e is not None and ts is not None:
-        energy_buffer.insert_sorted(ts=ts, value=e)
+        calculator.insert_energy(ts=ts, value=e)
 
     print(str(message))
 
@@ -43,7 +43,8 @@ tesla.close()
 
 try:
     while True:
-        time.sleep(1)
+        mqtt_client.publish(topic='geiterasen/shedd', payload=calculator.period_status(max_energy=10000))
+        time.sleep(5)
 except KeyboardInterrupt:
     pass
 
