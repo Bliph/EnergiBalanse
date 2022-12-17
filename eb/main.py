@@ -19,7 +19,7 @@ def input(message):
     if e is not None and ts is not None:
         calculator.insert_energy(ts=ts, value=e)
 
-    print(str(message))
+#    print(str(message))
 
 mqtt_client = MQTTClient(
     client_id='johan_tesla', 
@@ -39,14 +39,40 @@ if not tesla.authorized:
     tesla.fetch_token(authorization_response=input('Enter URL after authentication: '))
 
 vehicles = tesla.vehicle_list()
-tesla.close()
+
+for v in vehicles:
+    if v.get('vin') == '5YJ3E7EB8KF336792':
+        graa = v
+
+    if v.get('vin') == '5YJSA7E21GF130924':
+        blaa = v
+
+if False:
+    if not graa.available():
+        graa.sync_wake_up()
+        time.sleep(10)
+
+    graa.command('CHARGING_AMPS', 12)
+    graa.command('START_CHARGE')
+    graa.command('STOP_CHARGE')
+
+    graa.get_latest_vehicle_data()
+    graa.get_vehicle_data()
+    graa.get('data').get('charge_state').get('charging_state')  # 'Stopped', 
+    time.time() - graa.get('data').get('charge_state').get('timestamp')/1000
+
+    graa.get('data').get('charge_state').get('charge_amps')
 
 try:
     while True:
-        mqtt_client.publish(topic='geiterasen/shedd', payload=calculator.period_status(max_energy=10000))
+        payload=calculator.period_status(max_energy=9500)
+        mqtt_client.publish(topic='geiterasen/shedd', payload=payload)
+        print(str(payload))
         time.sleep(5)
 except KeyboardInterrupt:
     pass
+
+tesla.close()
 
 # #
 
