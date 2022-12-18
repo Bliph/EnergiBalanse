@@ -11,6 +11,14 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": true
+        },
+        {
+            "name": "EnergiBalanse",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/eb/main.py",
+            "console": "integratedTerminal",
+            "justMyCode": false
         }
     ]
 }
