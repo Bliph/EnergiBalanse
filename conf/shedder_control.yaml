@@ -1,0 +1,3 @@
+control:
+  enabled: true
+  max_energy: 8000

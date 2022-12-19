@@ -19,7 +19,7 @@
             "program": "${workspaceFolder}/eb/shedder.py",
             "console": "integratedTerminal",
             "args": [
-                "--cfg_dir", "."
+                "--cfg_dir", "${workspaceFolder}/conf"
             ],
             "justMyCode": true
         }

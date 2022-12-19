@@ -100,29 +100,29 @@ def get_settings(cfg_dir):
             'loop_sleep': 5
         },
         'mqtt_server': {
-            'host': 'forsvoll.casa', 
-            'port': 6883, 
-            'username': 'johan', 
-            'password': '036758ff69785e97',
+            'host': 'mqtt_host', 
+            'port': 1883, 
+            'username': 'mqtt_user', 
+            'password': 'mqtt_password',
         },
         'mqtt_client': {
-            'measurement_topic': 'geiterasen/HAN_gw/+/measurements',
-            'power_element': 'P_pos', 
-            'energy_element': 'A_pos',
+            'measurement_topic': 'measurement_topic',
+            'power_element': 'power', 
+            'energy_element': 'energy',
             'timestamp_element': 'timestamp', 
-            'status_topic': 'geiterasen/shedder/status',
-            'control_topic': 'geiterasen/shedder/control'
+            'status_topic': 'topic/shedder/status',
+            'control_topic': 'topic/shedder/control'
         },
         'location': {
-            'lat': HOME_LAT,
-            'lon': HOME_LON
+            'lat': 0.0,
+            'lon': 0.0
         },
         'control': {
             'energy_deadband_up': 300,
             'energy_deadband_down': 0,
         },
         'tesla_client': {
-            'user_id':'johan.forsvoll@gmail.com'
+            'user_id':'someuser@gmail.com'
         },
         'logging': {
             'log_level': 'DEBUG',
@@ -132,16 +132,16 @@ def get_settings(cfg_dir):
     settings = configparser.ConfigParser()
     settings.read_dict(defaults)
 
-    # filename = str(Path(cfg_dir) / "{}.conf".format(APP_NAME))
-    # if not os.path.exists(filename):
-    #     sys.stderr.write('Missing configuration {}!\n'.format(filename))
-    #     sys.exit(1)
+    filename = str(Path(cfg_dir) / "{}.conf".format(APP_NAME))
+    if not os.path.exists(filename):
+        sys.stderr.write('Missing configuration {}!\n'.format(filename))
+        sys.exit(1)
 
-    # try:
-    #     settings.read(filename)
-    # except Exception as e:
-    #     sys.stderr.write('Error wile reading configuration {}\n\n{}\n'.format(filename, e))
-    #     sys.exit(1)
+    try:
+        settings.read(filename)
+    except Exception as e:
+        sys.stderr.write('Error wile reading configuration {}\n\n{}\n'.format(filename, e))
+        sys.exit(1)
 
     return settings
 
@@ -222,7 +222,7 @@ def adjust(v, up=False):
     return current_current
 
 ###########################################################
-# 
+# MQTT subscription callbasck
 #
 def input(message):
     if message.get('topic').startswith(settings.get('mqtt_client', 'control_topic')):
@@ -243,16 +243,19 @@ def get_car_status(vs):
     car_status = []
     if vs is not None:
         for v in vs:
-            v.get_vehicle_data()
-            cs = {
-                'car_name': v.get('display_name'),
-                'charging_state': v.get('charge_state').get('charging_state'),
-                'charger_power': v.get('charge_state').get('charger_power'),
-                'charge_current_request': v.get('charge_state').get('charge_current_request'),
-                'charge_amps': v.get('charge_state').get('charge_amps'),
-                'battery_level': v.get('charge_state').get('battery_level')
-            }
-            car_status.append(cs)
+            try:
+                v.get_vehicle_data()
+                cs = {
+                    'car_name': v.get('display_name'),
+                    'charging_state': v.get('charge_state').get('charging_state'),
+                    'charger_power': v.get('charge_state').get('charger_power'),
+                    'charge_current_request': v.get('charge_state').get('charge_current_request'),
+                    'charge_amps': v.get('charge_state').get('charge_amps'),
+                    'battery_level': v.get('charge_state').get('battery_level')
+                }
+                car_status.append(cs)
+            except Exception:
+                pass
     return car_status
 
 ################################################################
@@ -290,8 +293,11 @@ if __name__ == '__main__':
     mqtt_client.set_input(input=input, topics=topics)
     mqtt_client.start()
 
-    tesla = teslapy.Tesla(settings.get('tesla_client', 'user_id'))
-#    a = tesla.fetch_token()
+    tesla = teslapy.Tesla(
+        email=settings.get('tesla_client', 'user_id'),
+        cache_file=str(Path(cfg_dir) / 'tesla_cache.json')
+    )
+
     if not tesla.authorized:
         logger.debug('URL: {}'.format(tesla.authorization_url()))
         tesla.fetch_token(authorization_response=input('Enter URL after authentication: '))
@@ -340,22 +346,6 @@ if __name__ == '__main__':
 
     tesla.close()
     sys.exit(1)
-
-# #
-
-# Loop 1:
-#     Les total effekt
-#     Les total energy
-#     Les ladeeffekt
-#     Akkumuler energi for visning
-#     Akkumuler effekt / min
-
-#     * P Gjenomsnitt hittil i timen
-#     * P Gjennomsnitt momentant
-    
-
-# Loop 2
-#     juster opp/ned effekt til effekt / min <= 10 kw
 
 # {'topic': 'geiterasen/HAN_gw/HAN_gw_600194744BB7/measurements', 'payload': {'name': 'main_electric_energy', 'tags': {'id_string': 'HAN_gw_600194744BB7', 'mac': 105559901883319}, 'timestamp': 1670796032, 'P_pos': 3902, 'P_neg': 0, 'Q_pos': 1102, 'Q_neg': 0, 'I1': 14.96, 'I2': 3.32, 'I3': 14.77, 'U1': 230, 'U2': 229, 'U3': 231}, 'timestamp': 1670796033706}
 # {'topic': 'geiterasen/HAN_gw/HAN_gw_600194744BB7/measurements', 'payload': {'name': 'main_electric_energy', 'tags': {'id_string': 'HAN_gw_600194744BB7', 'mac': 105559901883319}, 'timestamp': 1670796042, 'P_pos': 3868, 'P_neg': 0, 'Q_pos': 1076, 'Q_neg': 0, 'I1': 14.94, 'I2': 3.3, 'I3': 14.61, 'U1': 230, 'U2': 229, 'U3': 232}, 'timestamp': 1670796043674}

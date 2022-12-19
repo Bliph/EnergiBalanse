@@ -1,0 +1,20 @@
+[Unit]
+Description=Shedder service
+Documentation=Johan
+After=network-online.target
+
+[Service]
+User=johan
+Group=johan
+
+WorkingDirectory=/opt/jofo/shedder
+ExecStart=/opt/jofo/shedder/bin/python3 /opt/jofo/shedder/eb/shedder.py
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=5
+RestartForceExitStatus=SIGPIPE
+KillMode=control-group
+StandardOutput=null
+
+[Install]
+WantedBy=multi-user.target
