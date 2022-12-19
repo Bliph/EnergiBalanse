@@ -16,9 +16,12 @@
             "name": "EnergiBalanse",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/eb/main.py",
+            "program": "${workspaceFolder}/eb/shedder.py",
             "console": "integratedTerminal",
-            "justMyCode": false
+            "args": [
+                "--cfg_dir", "."
+            ],
+            "justMyCode": true
         }
     ]
 }
