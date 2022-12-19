@@ -8,7 +8,7 @@ User=johan
 Group=johan
 
 WorkingDirectory=/opt/jofo/shedder
-ExecStart=/opt/jofo/shedder/bin/python3 /opt/jofo/shedder/shedder/shedder.py
+ExecStart=/opt/jofo/shedder/bin/python3 /opt/jofo/shedder/shedder.py
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=on-failure
 RestartSec=5
