@@ -1,8 +1,38 @@
+import logging
+import yaml
 
 class TimeBuffer:
 
-    def __init__(self):
+    def __init__(self, backup_filename=None):
         self.sorted_list = []
+        self.backup_filename=backup_filename
+        self.logger = logging.getLogger('timebuffer')
+        if backup_filename is not None:
+            self.restore()
+
+    #################################################################
+    # Restore data from backup
+    #
+    def restore(self):
+        if self.backup_filename is not None:
+            try:
+                with open(self.backup_filename, "r") as f:
+                    restore_list = yaml.safe_load(f)
+                    if type(restore_list) is list:
+                        self.sorted_list = restore_list
+            except Exception as e:
+                self.logger.warning('Could not read buffer backup {}: {}'.format(self.backup_filename, e))
+
+    #################################################################
+    # Save data to backup
+    #
+    def save(self):
+        if self.backup_filename is not None:
+            try:
+                with open(self.backup_filename, "w") as f:
+                    f.write(yaml.dump(self.sorted_list))
+            except Exception as e:
+                self.logger.warning('Could not write buffer backup {}: {}'.format(self.backup_filename, e))
 
     #################################################################
     # Find index for tuple with ts >= provided ts

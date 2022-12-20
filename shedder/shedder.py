@@ -12,6 +12,7 @@ import sys
 from integration.mqtt import MQTTClient
 from data.float_tb import FloatTimeBuffer
 from data.energy_calc import EnergyCalculator
+from logger import create_logger
 
 # https://tesla-api.timdorr.com/
 # https://github.com/tdorssers/TeslaPy 
@@ -23,7 +24,7 @@ from data.energy_calc import EnergyCalculator
 #PERIOD_DURATION = 3600
 #SETTINGS_TOPIC_PREFIX = 'geiterasen/shedd/settings'
 
-__version__ = '0.0.1a'
+__version__ = '0.0.1b'
 APP_NAME = os.path.basename(__file__).split('.')[0]     
 DEFAULT_CFG_DIR = "/etc/opt/jofo/{}".format(APP_NAME)
 settings = {}
@@ -267,16 +268,10 @@ if __name__ == '__main__':
     settings = get_settings(cfg_dir=args.cfg_dir)
     dynamic_settings = get_dynamic_settings(cfg_dir=args.cfg_dir)
 
-    logger = logging.getLogger(APP_NAME)
-    logger.setLevel(settings.get('logging', 'log_level'))
-    formatter = logging.Formatter("%(asctime)s [%(levelname)-8s] [%(module)-20s] - %(message)s")
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
-    handler = WatchedFileHandler(str(Path(settings.get('logging', 'log_dir')) / '{}.log'.format(APP_NAME)))
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
-    logger.propagate = False
+    logger = create_logger(
+        name=APP_NAME, 
+        level=settings.get('logging', 'log_level'), 
+        log_dir=settings.get('logging', 'log_dir'))
 
     mqtt_client = MQTTClient(
         client_id=APP_NAME, 
