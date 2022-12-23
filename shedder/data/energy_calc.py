@@ -49,8 +49,8 @@ def ts2hms(ts):
 #
 class EnergyCalculator():
     def __init__(self, log_dir='.'):
-        self.power_buffer = FloatTimeBuffer(age=4000, backup_filename=str(Path(log_dir) / '{}.log'.format('power_buffer.yaml')))
-        self.energy_buffer = FloatTimeBuffer(age=24*3600*32, backup_filename=str(Path(log_dir) / '{}.log'.format('ebergy_buffer.yaml')))
+        self.power_buffer = FloatTimeBuffer(age=4000, backup_filename=str(Path(log_dir) / 'power_buffer.yaml'))
+        self.energy_buffer = FloatTimeBuffer(age=24*3600*32, backup_filename=str(Path(log_dir) / 'energy_buffer.yaml'))
 
     def insert_power(self, ts, value):
         self.power_buffer.insert_sorted(ts=ts, value=value)
