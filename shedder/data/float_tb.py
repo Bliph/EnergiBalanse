@@ -2,8 +2,8 @@ from .timebuffer import TimeBuffer
 
 class FloatTimeBuffer(TimeBuffer):
 
-    def __init__(self):
-        TimeBuffer.__init__(self)
+    def __init__(self, age=-1, backup_filename=None):
+        TimeBuffer.__init__(self, age, backup_filename)
 
     #################################################################
     # Get value

@@ -1,5 +1,6 @@
 import time
 import datetime
+from pathlib import Path
 from .float_tb import FloatTimeBuffer
 
 #####################################################################
@@ -47,10 +48,9 @@ def ts2hms(ts):
 # Returns (start, end) of month as timestamps
 #
 class EnergyCalculator():
-    def __init__(self):
-        self.power_buffer = FloatTimeBuffer()
-        self.energy_buffer = FloatTimeBuffer()
-        pass
+    def __init__(self, log_dir='.'):
+        self.power_buffer = FloatTimeBuffer(age=4000, backup_filename=str(Path(log_dir) / '{}.log'.format('power_buffer.yaml')))
+        self.energy_buffer = FloatTimeBuffer(age=24*3600*32, backup_filename=str(Path(log_dir) / '{}.log'.format('ebergy_buffer.yaml')))
 
     def insert_power(self, ts, value):
         self.power_buffer.insert_sorted(ts=ts, value=value)
@@ -97,7 +97,8 @@ class EnergyCalculator():
             'remaining_energy': max_energy - energy,
             'remaining_time': remaining_time,
             'remaining_max_power': 3600*(max_energy - energy)/remaining_time,
-            'estimated_energy': energy + power_avg_1m*remaining_time/3600
+            'estimated_energy': energy + power_avg_1m*remaining_time/3600,
+            'prev_hour_energy': self.energy_buffer.get_value(ts=int(time.time()))
         }
 
         return ret

@@ -1,14 +1,32 @@
 import logging
 import yaml
+import json
+from threading import Thread
+import time
 
 class TimeBuffer:
 
-    def __init__(self, backup_filename=None):
+    def __init__(self, age=-1, backup_filename=None, backup_interval=60):
         self.sorted_list = []
+        self.age = age
+        self.backup_interval=backup_interval
         self.backup_filename=backup_filename
         self.logger = logging.getLogger('timebuffer')
         if backup_filename is not None:
             self.restore()
+
+    #################################################################
+    # Kicker tread loop
+    #
+    def save_runner(self):
+        if self.backup_filename is not None:
+            try:
+                with open(self.backup_filename, "w") as f:
+                    f.write(yaml.dump(self.sorted_list))
+#                    f.write(yaml.dump(json.loads(json.dumps(self.sorted_list))))
+            except Exception as e:
+                self.logger.warning('Could not write buffer backup {}: {}'.format(self.backup_filename, e))
+
 
     #################################################################
     # Restore data from backup
@@ -27,12 +45,15 @@ class TimeBuffer:
     # Save data to backup
     #
     def save(self):
-        if self.backup_filename is not None:
-            try:
-                with open(self.backup_filename, "w") as f:
-                    f.write(yaml.dump(self.sorted_list))
-            except Exception as e:
-                self.logger.warning('Could not write buffer backup {}: {}'.format(self.backup_filename, e))
+        t = Thread(target=self.save_runner, daemon=True)
+        t.start()
+
+    #################################################################
+    # Auto crop data to max age
+    #
+    def auto_crop(self):
+        if self.age > 0 and self.sorted_list[0][0] < time.time()-self.age:
+            self.crop_interval(from_ts=time.time()-self.age-1, to_ts=int(time.time()+1))
 
     #################################################################
     # Find index for tuple with ts >= provided ts
@@ -87,7 +108,7 @@ class TimeBuffer:
     # Insert a element and keep list sorted by ts
     #
     def insert_sorted(self, ts: int, value, overwrite=True):
-        vt = (ts, value)
+        vt = [ts, value]        # Use list as a tuple to make it yaml-comp
         idx = self.get_index(ts)
 
         if overwrite and \
@@ -98,6 +119,9 @@ class TimeBuffer:
             self.sorted_list[idx] = vt
         else:
             self.sorted_list.insert(idx, vt)
+
+        self.auto_crop()
+        self.save()
 
     #################################################################
     # Return list [from, to], including

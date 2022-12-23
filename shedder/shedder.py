@@ -29,8 +29,9 @@ APP_NAME = os.path.basename(__file__).split('.')[0]
 DEFAULT_CFG_DIR = "/etc/opt/jofo/{}".format(APP_NAME)
 settings = {}
 dynamic_settings = {}
-calculator = EnergyCalculator()
+calculator = None
 cfg_dir = DEFAULT_CFG_DIR
+MIN_CURRENT = 5
 
 ###########################################################
 # 
@@ -149,8 +150,30 @@ def get_settings(cfg_dir):
 ###########################################################
 # Find vehicle with highest/lowest charge power
 #
-def select_vehicle(vs, select_max=True):
+# def select_vehicle(vs, select_max=True):
     
+#     v_return = None
+
+#     try:
+#         for v in vs:
+#             v.get_vehicle_data()
+#             if v.get('charge_state').get('charging_state').lower() == 'charging':
+#                 if v_return is None: 
+#                     v_return = v
+#                 elif select_max and v.get('charge_state').get('charger_power') > v_return.get('charge_state').get('charger_power'):
+#                     v_return = v
+#                 elif not select_max and v.get('charge_state').get('charger_power') < v_return.get('charge_state').get('charger_power'):
+#                     v_return = v
+#     except Exception as e:
+#         pass
+
+#     return v_return
+
+###########################################################
+# Find vehicle with highest charge power
+#
+def get_max_vehicle(vs):
+    MIN_CURRENT = 5
     v_return = None
 
     try:
@@ -159,26 +182,35 @@ def select_vehicle(vs, select_max=True):
             if v.get('charge_state').get('charging_state').lower() == 'charging':
                 if v_return is None: 
                     v_return = v
-                elif select_max and v.get('charge_state').get('charger_power') > v_return.get('charge_state').get('charger_power'):
-                    v_return = v
-                elif not select_max and v.get('charge_state').get('charger_power') < v_return.get('charge_state').get('charger_power'):
-                    v_return = v
+                if v.get('charge_state').get('charge_amps') > MIN_CURRENT:
+                    # Check power
+                    if v.get('charge_state').get('charger_power') >= v_return.get('charge_state').get('charger_power'):
+                        v_return = v
     except Exception as e:
         pass
 
     return v_return
 
 ###########################################################
-# Find vehicle with highest charge power
-#
-def get_max_vehicle(vs):
-    return select_vehicle(vs, select_max=True)    
-
-###########################################################
 # Find vehicle with lowest charge power
 #
 def get_min_vehicle(vs):
-    return select_vehicle(vs, select_max=False)    
+    v_return = None
+
+    try:
+        for v in vs:
+            v.get_vehicle_data()
+            if v.get('charge_state').get('charging_state').lower() == 'charging':
+                if v_return is None: 
+                    v_return = v
+                if v.get('charge_state').get('charge_amps') < v.get('charge_state').get('charge_current_request_max'):
+                    # Check power
+                    if v.get('charge_state').get('charger_power') <= v_return.get('charge_state').get('charger_power'):
+                        v_return = v
+    except Exception as e:
+        pass
+
+    return v_return
 
 ###########################################################
 # Adjust vehicle power up or down
@@ -211,7 +243,7 @@ def adjust(v, up=False):
 
         if up and current_current < max_current:
             v.command('CHARGING_AMPS', charging_amps=current_current + 1)
-        elif not up and current_current > 5:
+        elif not up and current_current > MIN_CURRENT:
             v.command('CHARGING_AMPS', charging_amps=current_current - 1)
 
         v.get_vehicle_data()
@@ -243,6 +275,8 @@ def input(message):
 def get_car_status(vs):
     car_status = []
     if vs is not None:
+        min_v = get_min_vehicle(vs)
+        max_v = get_max_vehicle(vs)
         for v in vs:
             try:
                 v.get_vehicle_data()
@@ -252,7 +286,14 @@ def get_car_status(vs):
                     'charger_power': v.get('charge_state').get('charger_power'),
                     'charge_current_request': v.get('charge_state').get('charge_current_request'),
                     'charge_amps': v.get('charge_state').get('charge_amps'),
-                    'battery_level': v.get('charge_state').get('battery_level')
+                    'battery_level': v.get('charge_state').get('battery_level'),
+                    'charge_current_request_max': v.get('charge_state').get('charge_current_request_max'),
+                    'charger_phases': v.get('charge_state').get('charger_phases'),
+                    'charge_rate': v.get('charge_state').get('charge_rate'),
+                    'timestamp': ts2iso(v.get('charge_state').get('timestamp')/1000),
+                    'avaliable': v.available(),
+                    'minumum_charging_vehicle': v == min_v,
+                    'maximum_charging_vehicle': v == max_v
                 }
                 car_status.append(cs)
             except Exception:
@@ -268,11 +309,18 @@ if __name__ == '__main__':
     settings = get_settings(cfg_dir=args.cfg_dir)
     dynamic_settings = get_dynamic_settings(cfg_dir=args.cfg_dir)
 
+    create_logger(
+        name='timebuffer', 
+        level=settings.get('logging', 'log_level'), 
+        log_dir=settings.get('logging', 'log_dir'))
+
     logger = create_logger(
         name=APP_NAME, 
         level=settings.get('logging', 'log_level'), 
         log_dir=settings.get('logging', 'log_dir'))
 
+    calculator = EnergyCalculator(log_dir=settings.get('logging', 'log_dir'))
+    
     mqtt_client = MQTTClient(
         client_id=APP_NAME, 
         host=settings.get('mqtt_server', 'host'), 
