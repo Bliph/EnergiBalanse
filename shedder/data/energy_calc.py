@@ -80,7 +80,6 @@ class EnergyCalculator():
         power_avg_1m = self.power_buffer.avg(ts_from=ts-60, ts_to=ts)
         power_avg_5m = self.power_buffer.avg(ts_from=ts-300, ts_to=ts)
 
-
         ret = {
             'ts_from': ts_from,
             'ts_to': ts_to,
@@ -98,7 +97,8 @@ class EnergyCalculator():
             'remaining_time': remaining_time,
             'remaining_max_power': 3600*(max_energy - energy)/remaining_time,
             'estimated_energy': energy + power_avg_1m*remaining_time/3600,
-            'prev_hour_energy': self.energy_buffer.get_value(ts=int(time.time()))
+            'prev_hour_energy': self.energy_buffer.get_value(ts=int(time.time())) - self.energy_buffer.get_value(ts=int(time.time()-3600)),
+            'prev_hour_energy_int': self.power_buffer.integrate(ts_from=ts_from-3600, ts_to=ts_from)/3600
         }
 
         return ret
