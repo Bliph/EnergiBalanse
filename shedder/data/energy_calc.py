@@ -49,7 +49,7 @@ def ts2hms(ts):
 #
 class EnergyCalculator():
     def __init__(self, log_dir='.'):
-        self.power_buffer = FloatTimeBuffer(age=4000, backup_filename=str(Path(log_dir) / 'power_buffer.yaml'))
+        self.power_buffer = FloatTimeBuffer(age=7*3600, backup_filename=str(Path(log_dir) / 'power_buffer.yaml'))
         self.energy_buffer = FloatTimeBuffer(age=24*3600*32, backup_filename=str(Path(log_dir) / 'energy_buffer.yaml'))
 
     def insert_power(self, ts, value):
@@ -97,7 +97,8 @@ class EnergyCalculator():
             'remaining_time': remaining_time,
             'remaining_max_power': 3600*(max_energy - energy)/remaining_time,
             'estimated_energy': energy + power_avg_1m*remaining_time/3600,
-            'prev_hour_energy': self.energy_buffer.get_value(ts=int(time.time())) - self.energy_buffer.get_value(ts=int(time.time()-3600)),
+            'prev_hour_energy': 1000*self.energy_buffer.get_value(ts=int(time.time())) - \
+                1000*self.energy_buffer.get_value(ts=int(time.time()-3600), selection='pre'),
             'prev_hour_energy_int': self.power_buffer.integrate(ts_from=ts_from-3600, ts_to=ts_from)/3600
         }
 
