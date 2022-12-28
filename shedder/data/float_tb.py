@@ -4,9 +4,9 @@ from .timebuffer import TimeBuffer
 
 class FloatTimeBuffer(TimeBuffer):
 
-    def __init__(self, age=-1, backup_filename=None, delta=False):
+    def __init__(self, age=-1, backup_filename=None, accumulated=False):
         TimeBuffer.__init__(self, age, backup_filename)
-        self.delta=delta
+        self.accumulated=accumulated
 
     #################################################################
     # Get value
@@ -65,21 +65,24 @@ class FloatTimeBuffer(TimeBuffer):
 
         if len(self.sorted_list) <= 0:
             return 0
-            
-        idx_from = self.get_index(ts=ts_from, valid_read_index=True)
-        idx_to = self.get_index(ts=ts_to, valid_read_index=True)
-        
-        # End point not at ts
-        if self.sorted_list[idx_to][0] > ts_to:
-            idx_to = max(idx_from, idx_to-1)
-
-        pre_value = self.get_value(ts=ts_from, selection='pre')
-        post_value = self.get_value(ts=ts_to, selection='pre')
 
         sum = 0
-        if self.delta:
+            
+        if self.accumulated:
+            pre_value = self.get_value(ts=ts_from, selection='inter')
+            post_value = self.get_value(ts=ts_to, selection='inter')
             sum = post_value-pre_value
         else:
+            idx_from = self.get_index(ts=ts_from, valid_read_index=True)
+            idx_to = self.get_index(ts=ts_to, valid_read_index=True)
+            
+            # End point not at ts
+            if self.sorted_list[idx_to][0] > ts_to:
+                idx_to = max(idx_from, idx_to-1)
+
+            pre_value = self.get_value(ts=ts_from, selection='pre')
+            post_value = self.get_value(ts=ts_to, selection='pre')
+
             for idx in range(idx_from, idx_to):
                 sum += self.sorted_list[idx][1] * (self.sorted_list[idx+1][0] - self.sorted_list[idx][0])
 
@@ -105,7 +108,7 @@ class FloatTimeBuffer(TimeBuffer):
     def get_max(self, ts_from: int, ts_to: int):
         measurements = self.get_interval(from_ts=ts_from, to_ts=ts_to)
         if len(measurements) > 0:
-            if self.delta:
+            if self.accumulated:
                 for i in range(len(measurements)-1, 0, -1):
                     measurements[i][1] -= measurements[i-1][1]
                 measurements[0][1] = 0.0
@@ -120,7 +123,7 @@ class FloatTimeBuffer(TimeBuffer):
     def get_min(self, ts_from: int, ts_to: int):
         measurements = self.get_interval(from_ts=ts_from, to_ts=ts_to)
         if len(measurements) > 0:
-            if self.delta:
+            if self.accumulated:
                 for i in range(len(measurements)-1, 0, -1):
                     measurements[i][1] -= measurements[i-1][1]
                 measurements[0][1] = 0.0
