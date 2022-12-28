@@ -182,10 +182,11 @@ def get_max_vehicle(vs):
             if v.get('charge_state').get('charging_state').lower() == 'charging':
                 if v_return is None: 
                     v_return = v
-                if v.get('charge_state').get('charge_amps') > MIN_CURRENT:
+                if v_return.get('charge_state').get('charge_amps') <= MIN_CURRENT:
+                    v_return = v
                     # Check power
-                    if v.get('charge_state').get('charger_power') >= v_return.get('charge_state').get('charger_power'):
-                        v_return = v
+                elif v.get('charge_state').get('charger_power') >= v_return.get('charge_state').get('charger_power'):
+                    v_return = v
     except Exception as e:
         pass
 
@@ -203,10 +204,11 @@ def get_min_vehicle(vs):
             if v.get('charge_state').get('charging_state').lower() == 'charging':
                 if v_return is None: 
                     v_return = v
-                if v.get('charge_state').get('charge_amps') < v.get('charge_state').get('charge_current_request_max'):
+                if v_return.get('charge_state').get('charge_amps') >= v_return.get('charge_state').get('charge_current_request_max'):
+                    v_return = v
                     # Check power
-                    if v.get('charge_state').get('charger_power') <= v_return.get('charge_state').get('charger_power'):
-                        v_return = v
+                elif v.get('charge_state').get('charger_power') <= v_return.get('charge_state').get('charger_power'):
+                    v_return = v
     except Exception as e:
         pass
 
