@@ -1,9 +1,12 @@
+from operator import itemgetter
+import copy
 from .timebuffer import TimeBuffer
 
 class FloatTimeBuffer(TimeBuffer):
 
-    def __init__(self, age=-1, backup_filename=None):
+    def __init__(self, age=-1, backup_filename=None, delta=False):
         TimeBuffer.__init__(self, age, backup_filename)
+        self.delta=delta
 
     #################################################################
     # Get value
@@ -74,11 +77,14 @@ class FloatTimeBuffer(TimeBuffer):
         post_value = self.get_value(ts=ts_to, selection='pre')
 
         sum = 0
-        for idx in range(idx_from, idx_to):
-            sum += self.sorted_list[idx][1] * (self.sorted_list[idx+1][0] - self.sorted_list[idx][0])
+        if self.delta:
+            sum = post_value-pre_value
+        else:
+            for idx in range(idx_from, idx_to):
+                sum += self.sorted_list[idx][1] * (self.sorted_list[idx+1][0] - self.sorted_list[idx][0])
 
-        sum += pre_value * (self.sorted_list[idx_from][0] - ts_from)
-        sum += post_value * (ts_to - self.sorted_list[idx_to][0])
+            sum += pre_value * (self.sorted_list[idx_from][0] - ts_from)
+            sum += post_value * (ts_to - self.sorted_list[idx_to][0])
 
         return sum
 
@@ -93,6 +99,51 @@ class FloatTimeBuffer(TimeBuffer):
         else:
             return self.integrate(ts_from=ts_from, ts_to=ts_to)/dt
 
+    #################################################################
+    # Max value
+    #
+    def get_max(self, ts_from: int, ts_to: int):
+        measurements = self.get_interval(from_ts=ts_from, to_ts=ts_to)
+        if len(measurements) > 0:
+            if self.delta:
+                for i in range(len(measurements)-1, 0, -1):
+                    measurements[i][1] -= measurements[i-1][1]
+                measurements[0][1] = 0.0
+
+            return max(measurements, key=itemgetter(1))
+        else:
+            return None
+
+    #################################################################
+    # Min value
+    #
+    def get_min(self, ts_from: int, ts_to: int):
+        measurements = self.get_interval(from_ts=ts_from, to_ts=ts_to)
+        if len(measurements) > 0:
+            if self.delta:
+                for i in range(len(measurements)-1, 0, -1):
+                    measurements[i][1] -= measurements[i-1][1]
+                measurements[0][1] = 0.0
+
+            return min(measurements, key=itemgetter(1))
+        else:
+            return None
+
+    #################################################################
+    # Max values over group of values
+    #
+    def get_period_max_list(self, ts_from: int, ts_to: int, duration=3600*24):
+        max_values = []
+
+        for f in range(ts_from, ts_to, duration):
+            vm = self.get_max(f, f+duration)
+            if vm is not None:
+                max_values.append(vm)
+
+        if len(max_values) > 0:
+            return sorted(max_values, key=itemgetter(1), reverse=True)
+        else:
+            return []
 
 
 

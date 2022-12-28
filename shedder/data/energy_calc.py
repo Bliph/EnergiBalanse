@@ -50,7 +50,7 @@ def ts2hms(ts):
 class EnergyCalculator():
     def __init__(self, log_dir='.'):
         self.power_buffer = FloatTimeBuffer(age=7*3600, backup_filename=str(Path(log_dir) / 'power_buffer.yaml'))
-        self.energy_buffer = FloatTimeBuffer(age=24*3600*32, backup_filename=str(Path(log_dir) / 'energy_buffer.yaml'))
+        self.energy_buffer = FloatTimeBuffer(age=24*3600*32, backup_filename=str(Path(log_dir) / 'energy_buffer.yaml'), delta=True)
 
     def insert_power(self, ts, value):
         self.power_buffer.insert_sorted(ts=ts, value=value)
@@ -58,14 +58,44 @@ class EnergyCalculator():
     def insert_energy(self, ts, value):
         self.energy_buffer.insert_sorted(ts=ts, value=value)
 
-    def monthly_status(self, max_power, ts=None):
+    def monthly_status(self, ts=None):
         if ts is None:
             ts = int(time.time())
         else:
             ts = int(ts)
 
         (ts_from, ts_to) = epoch_to_month_ts(ts)
-        return [0,0,0]
+        this_month = self.energy_buffer.get_period_max_list(ts_from, ts_to, duration=3600*24)[:3]
+
+        (ts_from, ts_to) = epoch_to_month_ts(ts_from-3600)
+        prev_month = self.energy_buffer.get_period_max_list(ts_from, ts_to, duration=3600*24)[:3]
+
+        for e in this_month:
+            e[0] = ts2ymd(e[0]) + ' ' + ts2hms(e[0])
+            e[1] *= 1000
+        if len(this_month) > 0:
+            this_avg = sum(e[1] for e in this_month) / len(this_month)
+        else:
+            this_avg = 0
+
+        for e in prev_month:
+            e[0] = ts2ymd(e[0]) + ' ' + ts2hms(e[0])
+            e[1] *= 1000
+        if len(prev_month) > 0:
+            prev_avg = sum(e[1] for e in prev_month) / len(prev_month)
+        else:
+            prev_avg = 0
+
+        return {
+            'this_month': {
+                'max_values': this_month,
+                'avg': this_avg
+            },
+            'prev_month': {
+                'max_values': prev_month,
+                'avg': prev_avg
+            }
+        }
 
     def period_status(self, max_energy, ts=None, duration=3600):
         if ts is None:

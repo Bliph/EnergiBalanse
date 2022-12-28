@@ -3,6 +3,7 @@ import yaml
 import json
 from threading import Thread
 import time
+import copy
 
 class TimeBuffer:
 
@@ -138,10 +139,10 @@ class TimeBuffer:
         to_idx = self.get_index(ts=to_ts)
         
         # If to_ts is at last element of range, include last element
-        if to_idx < len(self.sorted_list) and to_ts == a.sorted_list[to_idx][0]:
+        if to_idx < len(self.sorted_list) and to_ts == self.sorted_list[to_idx][0]:
             to_idx += 1
 
-        return self.sorted_list[from_idx:to_idx]
+        return copy.deepcopy(self.sorted_list[from_idx:to_idx])
 
     #################################################################
     # Crop list [from, to], including

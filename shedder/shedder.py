@@ -274,6 +274,9 @@ def input(message):
         if e is not None and ts is not None:
             calculator.insert_energy(ts=ts, value=e)
 
+###########################################################
+# Car status
+#
 def get_car_status(vs):
     car_status = []
     if vs is not None:
@@ -359,6 +362,7 @@ if __name__ == '__main__':
             mqtt_status = {
                 'enabled': dynamic_settings.get('control').get('enabled'),
                 'energy_status': period_status,
+                'monthly_status': calculator.monthly_status(),
                 'cars': get_car_status(vehicles)
             }
             mqtt_client.publish(
