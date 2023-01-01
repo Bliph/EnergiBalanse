@@ -109,9 +109,12 @@ class FloatTimeBuffer(TimeBuffer):
         measurements = self.get_interval(from_ts=ts_from, to_ts=ts_to)
         if len(measurements) > 0:
             if self.accumulated:
-                for i in range(len(measurements)-1, 0, -1):
-                    measurements[i][1] -= measurements[i-1][1]
-                measurements[0][1] = 0.0
+                # for i in range(len(measurements)-1, 0, -1):
+                #     measurements[i][1] -= measurements[i-1][1]
+                # measurements[0][1] = 0.0
+                for i in range(0, len(measurements)-1):
+                    measurements[i][1] = measurements[i+1][1] - measurements[i][1]
+                measurements[len(measurements)-1][1] = 0.0
 
             return max(measurements, key=itemgetter(1))
         else:
@@ -124,9 +127,12 @@ class FloatTimeBuffer(TimeBuffer):
         measurements = self.get_interval(from_ts=ts_from, to_ts=ts_to)
         if len(measurements) > 0:
             if self.accumulated:
-                for i in range(len(measurements)-1, 0, -1):
-                    measurements[i][1] -= measurements[i-1][1]
-                measurements[0][1] = 0.0
+                # for i in range(len(measurements)-1, 0, -1):
+                #     measurements[i][1] -= measurements[i-1][1]
+                # measurements[0][1] = 0.0
+                for i in range(0, len(measurements)-1):
+                    measurements[i][1] = measurements[i+1][1] - measurements[i][1]
+                measurements[len(measurements)-1][1] = 0.0
 
             return min(measurements, key=itemgetter(1))
         else:
