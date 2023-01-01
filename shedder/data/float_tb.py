@@ -116,7 +116,11 @@ class FloatTimeBuffer(TimeBuffer):
                     measurements[i][1] = measurements[i+1][1] - measurements[i][1]
                 del measurements[len(measurements)-1]
 
-            return max(measurements, key=itemgetter(1))
+            if len(measurements) > 0:
+                return max(measurements, key=itemgetter(1))
+            else:
+                return None
+            
         else:
             return None
 
@@ -134,7 +138,10 @@ class FloatTimeBuffer(TimeBuffer):
                     measurements[i][1] = measurements[i+1][1] - measurements[i][1]
                 del measurements[len(measurements)-1]
 
-            return min(measurements, key=itemgetter(1))
+            if len(measurements) > 0:
+                return min(measurements, key=itemgetter(1))
+            else:
+                return None
         else:
             return None
 
