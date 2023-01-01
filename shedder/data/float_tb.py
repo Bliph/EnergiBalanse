@@ -111,10 +111,10 @@ class FloatTimeBuffer(TimeBuffer):
             if self.accumulated:
                 # for i in range(len(measurements)-1, 0, -1):
                 #     measurements[i][1] -= measurements[i-1][1]
-                # measurements[0][1] = 0.0
+                # del measurements[0]
                 for i in range(0, len(measurements)-1):
                     measurements[i][1] = measurements[i+1][1] - measurements[i][1]
-                measurements[len(measurements)-1][1] = 0.0
+                del measurements[len(measurements)-1]
 
             return max(measurements, key=itemgetter(1))
         else:
@@ -129,10 +129,10 @@ class FloatTimeBuffer(TimeBuffer):
             if self.accumulated:
                 # for i in range(len(measurements)-1, 0, -1):
                 #     measurements[i][1] -= measurements[i-1][1]
-                # measurements[0][1] = 0.0
+                # del measurements[0]
                 for i in range(0, len(measurements)-1):
                     measurements[i][1] = measurements[i+1][1] - measurements[i][1]
-                measurements[len(measurements)-1][1] = 0.0
+                del measurements[len(measurements)-1]
 
             return min(measurements, key=itemgetter(1))
         else:
@@ -151,6 +151,22 @@ class FloatTimeBuffer(TimeBuffer):
 
         if len(max_values) > 0:
             return sorted(max_values, key=itemgetter(1), reverse=True)
+        else:
+            return []
+
+    #################################################################
+    # Min values over group of values
+    #
+    def get_period_min_list(self, ts_from: int, ts_to: int, duration=3600*24):
+        min_values = []
+
+        for f in range(ts_from, ts_to, duration):
+            vm = self.get_min(f, f+duration)
+            if vm is not None:
+                min_values.append(vm)
+
+        if len(min_values) > 0:
+            return sorted(min_values, key=itemgetter(1), reverse=False)
         else:
             return []
 

@@ -65,40 +65,39 @@ class EnergyCalculator():
             ts = int(ts)
 
         (ts_from, ts_to) = epoch_to_month_ts(ts)
-        this_month = self.energy_buffer.get_period_max_list(ts_from, ts_to, duration=3600*24)[:3]
+        this_month_max = self.energy_buffer.get_period_max_list(ts_from, ts_to, duration=3600*24)[:3]
+        this_month_min = self.energy_buffer.get_period_min_list(ts_from, ts_to, duration=3600*24)[:3]
 
         (ts_from, ts_to) = epoch_to_month_ts(ts_from-3600)
-        prev_month = self.energy_buffer.get_period_max_list(ts_from, ts_to, duration=3600*24)[:3]
+        prev_month_max = self.energy_buffer.get_period_max_list(ts_from, ts_to, duration=3600*24)[:3]
+        prev_month_min = self.energy_buffer.get_period_min_list(ts_from, ts_to, duration=3600*24)[:3]
 
-        # a23 = self.energy_buffer.integrate(1671750000, 1671750000+3600*24)
-        # a24 = self.energy_buffer.integrate(1671836400, 1671836400+3600*24)
-        # a25 = self.energy_buffer.integrate(1671922800, 1671922800+3600*24)
-        # a26 = self.energy_buffer.integrate(1672009200, 1672009200+3600*24)
+        # Normalize and add human readable timestamp
+        for l in [this_month_max, this_month_min, prev_month_max, prev_month_min]:
+            for e in l:
+                e[0] = ts2ymd(e[0]) + ' ' + ts2hms(e[0])
+                e[1] = int(e[1] * 1000)
 
-        for e in this_month:
-            e[0] = ts2ymd(e[0]) + ' ' + ts2hms(e[0])
-            e[1] *= 1000
-        if len(this_month) > 0:
-            this_avg = sum(e[1] for e in this_month) / len(this_month)
+        if len(this_month_max) > 0:
+            this_avg = int(sum(e[1] for e in this_month_max) / len(this_month_max))
         else:
             this_avg = 0
 
-        for e in prev_month:
-            e[0] = ts2ymd(e[0]) + ' ' + ts2hms(e[0])
-            e[1] *= 1000
-        if len(prev_month) > 0:
-            prev_avg = sum(e[1] for e in prev_month) / len(prev_month)
+        if len(prev_month_max) > 0:
+            prev_avg = int(sum(e[1] for e in prev_month_max) / len(prev_month_max))
         else:
             prev_avg = 0
 
         return {
             'this_month': {
-                'max_values': this_month,
-                'avg': this_avg
+                'max_values': this_month_max,
+                'min_values': this_month_min,
+                'max3_avg': this_avg
             },
             'prev_month': {
-                'max_values': prev_month,
-                'avg': prev_avg
+                'max_values': prev_month_max,
+                'min_values': prev_month_min,
+                'max3_avg': prev_avg
             }
         }
 
