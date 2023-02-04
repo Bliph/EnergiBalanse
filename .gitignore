@@ -1,6 +1,8 @@
 *.log
 cache.json
 model*.json
+*.yaml
+*.csv
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
