@@ -101,7 +101,7 @@ class EnergyCalculator():
             }
         }
 
-    def period_status(self, max_energy, ts=None, duration=3600):
+    def period_status(self, max_energy, ts=None, duration=3600, max_offline_time=600):
         if ts is None:
             ts = int(time.time())
         else:
@@ -123,8 +123,11 @@ class EnergyCalculator():
             'duration_text': time.strftime("%H:%M:%S", time.gmtime(duration)),
             'ts': ts,
             'power': self.power_buffer.get_value(ts=ts, selection='pre'),
+            'power_ts': self.power_buffer.sorted_list[-1][0],
+            'power_ts_text': ts2ymd(self.power_buffer.sorted_list[-1][0]) + ' ' + ts2hms(self.power_buffer.sorted_list[-1][0]),
             'power_avg_1m': power_avg_1m,
             'power_avg_5m': power_avg_5m,
+            'metering_offline': int(time.time()) - self.power_buffer.sorted_list[-1][0] > max_offline_time,
             'energy': energy,
             'max_energy': max_energy,
             'remaining_energy': max_energy - energy,
@@ -133,6 +136,8 @@ class EnergyCalculator():
             'estimated_energy': energy + power_avg_1m*remaining_time/3600,
             'prev_hour_energy': 1000*self.energy_buffer.get_value(ts=int(time.time())) - \
                 1000*self.energy_buffer.get_value(ts=int(time.time()-3600), selection='pre'),
+            'prev_hour_energy_ts': self.energy_buffer.sorted_list[-1][0],
+            'prev_hour_energy_ts_text': ts2ymd(self.energy_buffer.sorted_list[-1][0]) + ' ' + ts2hms(self.energy_buffer.sorted_list[-1][0]),
             'prev_hour_energy_int': self.power_buffer.integrate(ts_from=ts_from-3600, ts_to=ts_from)/3600
         }
 

@@ -5,6 +5,7 @@ import logging
 import configparser
 import argparse
 import yaml
+import random
 from pathlib import Path
 import os
 from logging.handlers import WatchedFileHandler
@@ -99,7 +100,8 @@ def get_settings(cfg_dir):
         'times': {
             'adjust_period': 30,
             'calculation_period_duration': 3600,
-            'loop_sleep': 5
+            'loop_sleep': 5,
+            'max_offline_time': 600
         },
         'mqtt_server': {
             'host': 'mqtt_host', 
@@ -170,6 +172,26 @@ def get_settings(cfg_dir):
 #     return v_return
 
 ###########################################################
+# Find random vehicle from vehicles charging
+#
+def get_random_vehicle(vs):
+    v_return = None
+
+    try:
+        l = []
+        for v in vs:
+            v.get_vehicle_data()
+            if v.get('charge_state').get('charging_state').lower() == 'charging':
+                l.append(v)
+        if len(l) > 0:
+            v_return = random.choice(l)
+
+    except Exception as e:
+        logger.warning('get_random_vehicle() failed: {}'.format(e))
+
+    return v_return
+
+###########################################################
 # Find vehicle with highest charge power
 #
 def get_max_vehicle(vs):
@@ -188,7 +210,7 @@ def get_max_vehicle(vs):
                 elif v.get('charge_state').get('charger_power') >= v_return.get('charge_state').get('charger_power'):
                     v_return = v
     except Exception as e:
-        pass
+        logger.warning('get_max_vehicle() failed: {}'.format(e))
 
     return v_return
 
@@ -210,12 +232,13 @@ def get_min_vehicle(vs):
                 elif v.get('charge_state').get('charger_power') <= v_return.get('charge_state').get('charger_power'):
                     v_return = v
     except Exception as e:
-        pass
+        logger.warning('get_min_vehicle() failed: {}'.format(e))
 
     return v_return
 
 ###########################################################
 # Adjust vehicle power up or down
+# Returns active current
 #
 def adjust(v, up=False):
     if v is None:
@@ -253,6 +276,12 @@ def adjust(v, up=False):
 
     except Exception as e:
         return 0
+
+    if current_current > 0:
+        if up:
+            logger.debug('Adjusted {} UP to {}A'.format(v.get('display_name'), current_current))
+        else:
+            logger.debug('Adjusted {} DOWN to {}A'.format(v.get('display_name'), current_current))
 
     return current_current
 
@@ -357,7 +386,8 @@ if __name__ == '__main__':
         while True:
             period_status=calculator.period_status(
                 max_energy=dynamic_settings.get('control').get('max_energy'), 
-                duration=settings.getint('times', 'calculation_period_duration'))
+                duration=settings.getint('times', 'calculation_period_duration'),
+                max_offline_time=settings.getint('times', 'max_offline_time'))
             
             mqtt_status = {
                 'enabled': dynamic_settings.get('control').get('enabled'),
@@ -370,23 +400,39 @@ if __name__ == '__main__':
                 payload=mqtt_status)
 
             if dynamic_settings.get('control').get('enabled'):
+
+                # Beregn og finn gjenværende effekt
                 remaining_max_power = period_status.get('remaining_max_power')
                 power = period_status.get('power_avg_1m')
 
-                if power > remaining_max_power + settings.getint('control', 'energy_deadband_down') and \
-                    time.time()-last_adjust > settings.getint('times', 'adjust_period'):
-                    v = get_max_vehicle(vehicles)
-                    np = adjust(v, up=False)
-                    if np > 0:
-                        logger.debug('Adjusted {} DOWN to {}A ({:.1f}W > {:.1f}W + db)'.format(v.get('display_name'), np, power, remaining_max_power))
+                # Dersom faktisk effekt > gjenværende tillatt max, gjør noe!
+                if period_status.get('metering_offline'):
+
+                    logger.debug('Adjusting DOWN when energy/power metering is offline')
+
+                    # Finn kjøretøy med høyest effekt (som skal justeres NED)
+                    adjust(get_max_vehicle(vehicles), up=False)
+                    adjust(get_random_vehicle(vehicles), up=False)
+                    last_adjust = time.time()
+                else:
+                    if power > remaining_max_power + settings.getint('control', 'energy_deadband_down') and \
+                        time.time()-last_adjust > settings.getint('times', 'adjust_period'):
+
+                        logger.debug('Adjusting DOWN ({:.1f}W > {:.1f}W + db)'.format(power, remaining_max_power))
+
+                        # Finn kjøretøy med høyest effekt (som skal justeres NED)
+                        adjust(get_max_vehicle(vehicles), up=False)
+                        adjust(get_random_vehicle(vehicles), up=False)
                         last_adjust = time.time()
 
-                elif power < remaining_max_power - settings.getint('control', 'energy_deadband_up') \
-                    and time.time()-last_adjust > settings.getint('times', 'adjust_period'):
-                    v = get_min_vehicle(vehicles)
-                    np = adjust(v, up=True)
-                    if np > 0:
-                        logger.debug('Adjusted {} UP to {}A ({:.1f}W < {:.1f}W - db)'.format(v.get('display_name'), np, power, remaining_max_power))
+                    elif power < remaining_max_power - settings.getint('control', 'energy_deadband_up') \
+                        and time.time()-last_adjust > settings.getint('times', 'adjust_period'):
+
+                        logger.debug('Adjusting UP ({:.1f}W < {:.1f}W + db)'.format(power, remaining_max_power))
+
+                        # Finn kjøretøy med lavest effekt (som skal justeres OPP)
+                        adjust(get_min_vehicle(vehicles), up=True)
+                        adjust(get_random_vehicle(vehicles), up=True)
                         last_adjust = time.time()
 
             time.sleep(settings.getint('times', 'loop_sleep'))

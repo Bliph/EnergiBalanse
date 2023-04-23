@@ -25,7 +25,7 @@ class FloatTimeBuffer(TimeBuffer):
 
         # Last value: Return last value
         if idx >= len(self.sorted_list):
-            return self.sorted_list[len(self.sorted_list)-1][1]
+            return self.sorted_list[-1][1]
         
         # First value: Return first value
         elif idx <= 0:
@@ -114,7 +114,7 @@ class FloatTimeBuffer(TimeBuffer):
                 # del measurements[0]
                 for i in range(0, len(measurements)-1):
                     measurements[i][1] = measurements[i+1][1] - measurements[i][1]
-                del measurements[len(measurements)-1]
+                del measurements[-1]
 
             if len(measurements) > 0:
                 return max(measurements, key=itemgetter(1))
@@ -136,7 +136,7 @@ class FloatTimeBuffer(TimeBuffer):
                 # del measurements[0]
                 for i in range(0, len(measurements)-1):
                     measurements[i][1] = measurements[i+1][1] - measurements[i][1]
-                del measurements[len(measurements)-1]
+                del measurements[-1]
 
             if len(measurements) > 0:
                 return min(measurements, key=itemgetter(1))
