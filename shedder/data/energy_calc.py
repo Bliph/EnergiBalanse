@@ -120,7 +120,8 @@ class EnergyCalculator():
 
         # Set emulated power-usage to max if power-reading is offline/missing to avoid over-usage 
         if metering_offline:
-            self.insert_power(ts=ts, value=max_energy*3600/duration)
+            if last_power is None or last_power[1] < max_energy*3600/duration:
+                self.insert_power(ts=ts-max_offline_time, value=max_energy*3600/duration)
 
         power_avg_1m = self.power_buffer.avg(ts_from=ts-60, ts_to=ts)
         power_avg_5m = self.power_buffer.avg(ts_from=ts-300, ts_to=ts)
