@@ -111,6 +111,17 @@ class EnergyCalculator():
         ts_to = ts_from + duration
         energy = self.power_buffer.integrate(ts_from=ts_from, ts_to=ts)/3600
         remaining_time = max(ts_to - ts, 1)     # Minimmum value 1 to avoid /0
+
+        last_power = self.power_buffer.get_last_tuple()
+        if last_power is None:
+            metering_offline = True
+        else:
+            metering_offline = int(time.time()) - last_power[0] > max_offline_time
+
+        # Set emulated power-usage to max if power-reading is offline/missing to avoid over-usage 
+        if metering_offline:
+            self.insert_power(ts=ts, value=max_energy*3600/duration)
+
         power_avg_1m = self.power_buffer.avg(ts_from=ts-60, ts_to=ts)
         power_avg_5m = self.power_buffer.avg(ts_from=ts-300, ts_to=ts)
 
@@ -127,7 +138,7 @@ class EnergyCalculator():
             'power_ts_text': ts2ymd(self.power_buffer.sorted_list[-1][0]) + ' ' + ts2hms(self.power_buffer.sorted_list[-1][0]),
             'power_avg_1m': power_avg_1m,
             'power_avg_5m': power_avg_5m,
-            'metering_offline': int(time.time()) - self.power_buffer.sorted_list[-1][0] > max_offline_time,
+            'metering_offline': metering_offline,
             'energy': energy,
             'max_energy': max_energy,
             'remaining_energy': max_energy - energy,

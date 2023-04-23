@@ -57,6 +57,16 @@ class TimeBuffer:
             self.crop_interval(from_ts=time.time()-self.age-1, to_ts=int(time.time()+1))
 
     #################################################################
+    # Return last tuple in list. None if empty
+    #
+    def get_last_tuple(self):
+        # Empty list: 
+        if len(self.sorted_list) <= 0:
+            return None
+        else:
+            return self.sorted_list[-1]
+
+    #################################################################
     # Find index for tuple with ts >= provided ts
     #
     def get_index(self, ts: int, from_idx=0, to_idx=None, valid_read_index=False):

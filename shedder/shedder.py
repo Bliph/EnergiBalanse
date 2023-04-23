@@ -25,7 +25,7 @@ from logger import create_logger
 #PERIOD_DURATION = 3600
 #SETTINGS_TOPIC_PREFIX = 'geiterasen/shedd/settings'
 
-__version__ = '0.0.1b'
+__version__ = '0.0.1c'
 APP_NAME = os.path.basename(__file__).split('.')[0]     
 DEFAULT_CFG_DIR = "/etc/opt/jofo/{}".format(APP_NAME)
 settings = {}
