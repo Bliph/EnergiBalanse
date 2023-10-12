@@ -16,7 +16,7 @@ from data.energy_calc import EnergyCalculator
 from logger import create_logger
 
 # https://tesla-api.timdorr.com/
-# https://github.com/tdorssers/TeslaPy 
+# https://github.com/tdorssers/TeslaPy
 # https://github.com/nside/pytesla (old)
 
 #DEAD_BAND = 300     # Current dead band when increasing charging current
@@ -26,7 +26,7 @@ from logger import create_logger
 #SETTINGS_TOPIC_PREFIX = 'geiterasen/shedd/settings'
 
 __version__ = '0.0.1c'
-APP_NAME = os.path.basename(__file__).split('.')[0]     
+APP_NAME = os.path.basename(__file__).split('.')[0]
 DEFAULT_CFG_DIR = "/etc/opt/jofo/{}".format(APP_NAME)
 settings = {}
 dynamic_settings = {}
@@ -35,7 +35,7 @@ cfg_dir = DEFAULT_CFG_DIR
 MIN_CURRENT = 5
 
 ###########################################################
-# 
+#
 #
 def ts2iso(ts):
     local_zone = datetime.datetime.now().astimezone().tzinfo
@@ -87,7 +87,7 @@ def store_dynamic_settings(cfg_dir, settings):
             f.write(yaml.dump(settings))
     except Exception:
         pass
-    
+
 ###########################################################
 # Import settings
 #
@@ -104,16 +104,16 @@ def get_settings(cfg_dir):
             'max_offline_time': 600
         },
         'mqtt_server': {
-            'host': 'mqtt_host', 
-            'port': 1883, 
-            'username': 'mqtt_user', 
+            'host': 'mqtt_host',
+            'port': 1883,
+            'username': 'mqtt_user',
             'password': 'mqtt_password',
         },
         'mqtt_client': {
             'measurement_topic': 'measurement_topic',
-            'power_element': 'power', 
+            'power_element': 'power',
             'energy_element': 'energy',
-            'timestamp_element': 'timestamp', 
+            'timestamp_element': 'timestamp',
             'status_topic': 'topic/shedder/status',
             'control_topic': 'topic/shedder/control'
         },
@@ -153,14 +153,14 @@ def get_settings(cfg_dir):
 # Find vehicle with highest/lowest charge power
 #
 # def select_vehicle(vs, select_max=True):
-    
+
 #     v_return = None
 
 #     try:
 #         for v in vs:
 #             v.get_vehicle_data()
 #             if v.get('charge_state').get('charging_state').lower() == 'charging':
-#                 if v_return is None: 
+#                 if v_return is None:
 #                     v_return = v
 #                 elif select_max and v.get('charge_state').get('charger_power') > v_return.get('charge_state').get('charger_power'):
 #                     v_return = v
@@ -202,7 +202,7 @@ def get_max_vehicle(vs):
         for v in vs:
             v.get_vehicle_data()
             if v.get('charge_state').get('charging_state').lower() == 'charging':
-                if v_return is None: 
+                if v_return is None:
                     v_return = v
                 if v_return.get('charge_state').get('charge_amps') <= MIN_CURRENT:
                     v_return = v
@@ -224,7 +224,7 @@ def get_min_vehicle(vs):
         for v in vs:
             v.get_vehicle_data()
             if v.get('charge_state').get('charging_state').lower() == 'charging':
-                if v_return is None: 
+                if v_return is None:
                     v_return = v
                 if v_return.get('charge_state').get('charge_amps') >= v_return.get('charge_state').get('charge_current_request_max'):
                     v_return = v
@@ -296,10 +296,11 @@ def input(message):
 
     else:
         ts = message.get('payload', {}).get(settings.get('mqtt_client', 'timestamp_element'))
-        p = message.get('payload', {}).get(settings.get('mqtt_client', 'power_element'))
+        p_p = message.get('payload', {}).get(settings.get('mqtt_client', 'power_element_pos'))
+        p_n = message.get('payload', {}).get(settings.get('mqtt_client', 'power_element_neg'))
         e = message.get('payload', {}).get(settings.get('mqtt_client', 'energy_element'))
-        if p is not None and ts is not None:
-            calculator.insert_power(ts=ts, value=p)
+        if p_p is not None and p_n is not None and ts is not None:
+            calculator.insert_power(ts=ts, value=p_p-p_n)
         if e is not None and ts is not None:
             calculator.insert_energy(ts=ts, value=e)
 
@@ -344,22 +345,22 @@ if __name__ == '__main__':
     dynamic_settings = get_dynamic_settings(cfg_dir=args.cfg_dir)
 
     create_logger(
-        name='timebuffer', 
-        level=settings.get('logging', 'log_level'), 
+        name='timebuffer',
+        level=settings.get('logging', 'log_level'),
         log_dir=settings.get('logging', 'log_dir'))
 
     logger = create_logger(
-        name=APP_NAME, 
-        level=settings.get('logging', 'log_level'), 
+        name=APP_NAME,
+        level=settings.get('logging', 'log_level'),
         log_dir=settings.get('logging', 'log_dir'))
 
     calculator = EnergyCalculator(log_dir=settings.get('logging', 'log_dir'))
-    
+
     mqtt_client = MQTTClient(
-        client_id=APP_NAME, 
-        host=settings.get('mqtt_server', 'host'), 
-        port=settings.getint('mqtt_server', 'port'), 
-        username=settings.get('mqtt_server', 'username'), 
+        client_id=APP_NAME,
+        host=settings.get('mqtt_server', 'host'),
+        port=settings.getint('mqtt_server', 'port'),
+        username=settings.get('mqtt_server', 'username'),
         password=settings.get('mqtt_server', 'password'),
         keepalive=60)
 
@@ -385,10 +386,10 @@ if __name__ == '__main__':
         last_adjust = time.time()
         while True:
             period_status=calculator.period_status(
-                max_energy=dynamic_settings.get('control').get('max_energy'), 
+                max_energy=dynamic_settings.get('control').get('max_energy'),
                 duration=settings.getint('times', 'calculation_period_duration'),
                 max_offline_time=settings.getint('times', 'max_offline_time'))
-            
+
             mqtt_status = {
                 'enabled': dynamic_settings.get('control').get('enabled'),
                 'energy_status': period_status,
@@ -396,7 +397,7 @@ if __name__ == '__main__':
                 'cars': get_car_status(vehicles)
             }
             mqtt_client.publish(
-                topic=settings.get('mqtt_client', 'status_topic'), 
+                topic=settings.get('mqtt_client', 'status_topic'),
                 payload=mqtt_status)
 
             if dynamic_settings.get('control').get('enabled'):
