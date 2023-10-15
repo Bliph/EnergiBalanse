@@ -296,13 +296,14 @@ def input(message):
 
     else:
         ts = message.get('payload', {}).get(settings.get('mqtt_client', 'timestamp_element'))
-        p_p = message.get('payload', {}).get(settings.get('mqtt_client', 'power_element_pos'))
-        p_n = message.get('payload', {}).get(settings.get('mqtt_client', 'power_element_neg'))
-        e = message.get('payload', {}).get(settings.get('mqtt_client', 'energy_element'))
-        if p_p is not None and p_n is not None and ts is not None:
-            calculator.insert_power(ts=ts, value=p_p-p_n)
-        if e is not None and ts is not None:
-            calculator.insert_energy(ts=ts, value=e)
+        p_positive = message.get('payload', {}).get(settings.get('mqtt_client', 'power_element_pos'))
+        p_negative = message.get('payload', {}).get(settings.get('mqtt_client', 'power_element_neg'))
+        e_export = message.get('payload', {}).get(settings.get('mqtt_client', 'energy_element_neg'))
+        e_import = message.get('payload', {}).get(settings.get('mqtt_client', 'energy_element_pos'))
+        if p_positive is not None and p_negative is not None and ts is not None:
+            calculator.insert_power(ts=ts, value=p_positive-p_negative)
+        if e_export is not None and e_import is not None and ts is not None:
+            calculator.insert_energy(ts=ts, value=e_import-e_export)
 
 ###########################################################
 # Car status
