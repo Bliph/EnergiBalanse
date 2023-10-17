@@ -48,9 +48,9 @@ def ts2hms(ts):
 # Returns (start, end) of month as timestamps
 #
 class EnergyCalculator():
-    def __init__(self, log_dir='.'):
-        self.power_buffer = FloatTimeBuffer(age=7*3600, backup_filename=str(Path(log_dir) / 'power_buffer.yaml'))
-        self.energy_buffer = FloatTimeBuffer(age=24*3600*32, backup_filename=str(Path(log_dir) / 'energy_buffer.yaml'), accumulated=True)
+    def __init__(self, log_dir='.', postfix=''):
+        self.power_buffer = FloatTimeBuffer(age=7*3600, backup_filename=str(Path(log_dir) / f'power_buffer{postfix}.yaml'))
+        self.energy_buffer = FloatTimeBuffer(age=24*3600*32, backup_filename=str(Path(log_dir) / f'energy_buffer{postfix}.yaml'), accumulated=True)
 
     def insert_power(self, ts, value):
         self.power_buffer.insert_sorted(ts=ts, value=value)

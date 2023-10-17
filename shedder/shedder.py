@@ -30,7 +30,8 @@ APP_NAME = os.path.basename(__file__).split('.')[0]
 DEFAULT_CFG_DIR = "/etc/opt/jofo/{}".format(APP_NAME)
 settings = {}
 dynamic_settings = {}
-calculator = None
+calculator_export = None
+calculator_import = None
 cfg_dir = DEFAULT_CFG_DIR
 MIN_CURRENT = 5
 
@@ -300,10 +301,15 @@ def input(message):
         p_negative = message.get('payload', {}).get(settings.get('mqtt_client', 'power_element_neg'))
         e_export = message.get('payload', {}).get(settings.get('mqtt_client', 'energy_element_neg'))
         e_import = message.get('payload', {}).get(settings.get('mqtt_client', 'energy_element_pos'))
-        if p_positive is not None and p_negative is not None and ts is not None:
-            calculator.insert_power(ts=ts, value=p_positive-p_negative)
-        if e_export is not None and e_import is not None and ts is not None:
-            calculator.insert_energy(ts=ts, value=e_import-e_export)
+        if p_positive is not None  and ts is not None:
+            calculator_import.insert_power(ts=ts, value=p_positive)
+        if e_import is not None and ts is not None:
+            calculator_import.insert_energy(ts=ts, value=e_import)
+
+        if p_negative is not None and ts is not None:
+            calculator_export.insert_power(ts=ts, value=p_negative)
+        if e_export is not None and ts is not None:
+            calculator_export.insert_energy(ts=ts, value=e_export)
 
 ###########################################################
 # Car status
@@ -355,7 +361,8 @@ if __name__ == '__main__':
         level=settings.get('logging', 'log_level'),
         log_dir=settings.get('logging', 'log_dir'))
 
-    calculator = EnergyCalculator(log_dir=settings.get('logging', 'log_dir'))
+    calculator_import = EnergyCalculator(log_dir=settings.get('logging', 'log_dir'), postfix='_import')
+    calculator_export = EnergyCalculator(log_dir=settings.get('logging', 'log_dir'), postfix='_export')
 
     mqtt_client = MQTTClient(
         client_id=APP_NAME,
@@ -386,15 +393,21 @@ if __name__ == '__main__':
     try:
         last_adjust = time.time()
         while True:
-            period_status=calculator.period_status(
+            period_status_import = calculator_import.period_status(
                 max_energy=dynamic_settings.get('control').get('max_energy'),
+                duration=settings.getint('times', 'calculation_period_duration'),
+                max_offline_time=settings.getint('times', 'max_offline_time'))
+
+            period_status_export = calculator_export.period_status(
+                max_energy=16000,
                 duration=settings.getint('times', 'calculation_period_duration'),
                 max_offline_time=settings.getint('times', 'max_offline_time'))
 
             mqtt_status = {
                 'enabled': dynamic_settings.get('control').get('enabled'),
-                'energy_status': period_status,
-                'monthly_status': calculator.monthly_status(),
+                'energy_status_import': period_status_import,
+                'energy_status_export': period_status_export,
+                'monthly_status_import': calculator_import.monthly_status(),
                 'cars': get_car_status(vehicles)
             }
             mqtt_client.publish(
@@ -404,11 +417,11 @@ if __name__ == '__main__':
             if dynamic_settings.get('control').get('enabled'):
 
                 # Beregn og finn gjenværende effekt
-                remaining_max_power = period_status.get('remaining_max_power')
-                power = period_status.get('power_avg_1m')
+                remaining_max_power = period_status_import.get('remaining_max_power')
+                power = period_status_import.get('power_avg_1m')
 
                 # Dersom faktisk effekt > gjenværende tillatt max, gjør noe!
-                if period_status.get('metering_offline'):
+                if period_status_import.get('metering_offline'):
 
                     logger.debug('Adjusting DOWN when energy/power metering is offline')
 
