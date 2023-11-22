@@ -1,3 +1,4 @@
-TeslaPy==2.6.0
+TeslaPy==2.8.0
+# TeslaPy==git+git://github.com/tdorssers/TeslaPy.git
 PyYAML==5.3.1
 paho-mqtt==1.5.1

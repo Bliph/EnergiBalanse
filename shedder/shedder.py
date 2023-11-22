@@ -253,14 +253,10 @@ def adjust(v, up=False):
         #     v.sync_wake_up()
         v.get_vehicle_data()
 
-        lat = v.get('drive_state').get('latitude')
-        lon = v.get('drive_state').get('longitude')
-
         max_current = v.get('charge_state').get('charge_current_request_max')
         current_current = v.get('charge_state').get('charge_amps')
 
-        if abs(lat - settings.getfloat('location', 'lat')) > 0.001 or \
-            abs(lon - settings.getfloat('location', 'lon')) > 0.001:
+        if not at_location(v):
             logger.debug('Not home!')
             return 0
 
@@ -312,6 +308,24 @@ def input(message):
             calculator_export.insert_energy(ts=ts, value=e_export)
 
 ###########################################################
+# Check if car is within charging location
+# Default to True
+#
+def at_location(v):
+    try:
+        lat = v.get('drive_state').get('latitude')
+        lon = v.get('drive_state').get('longitude')
+
+        if (abs(lat - settings.getfloat('location', 'lat')) > 0.001 or
+            abs(lon - settings.getfloat('location', 'lon')) > 0.001):
+            logger.debug('Not home!')
+            return False
+    except Exception as e:
+        pass
+
+    return True
+
+###########################################################
 # Car status
 #
 def get_car_status(vs):
@@ -321,9 +335,20 @@ def get_car_status(vs):
         max_v = get_max_vehicle(vs)
         for v in vs:
             try:
-                v.get_vehicle_data()
+
+                # Ref. https://github.com/tdorssers/TeslaPy/discussions/148
+#                v.get_vehicle_data()
+                v.update(v.api('VEHICLE_DATA', endpoints='location_data;'
+                                    'charge_state;climate_state;vehicle_state;'
+                                    'gui_settings;vehicle_config')['response'])
+                v.timestamp = time.time()
+
                 cs = {
-                    'car_name': v.get('display_name'),
+                    'vin': v.get('vin'),
+                    'at_location': at_location(v),
+                    'latitude': v.get('drive_state', {}).get('latitude'),
+                    'longitude': v.get('drive_state', {}).get('longitude'),
+                    'car_name': v.get('display_name') or v.get('vehicle_state').get('vehicle_name'),
                     'charging_state': v.get('charge_state').get('charging_state'),
                     'charger_power': v.get('charge_state').get('charger_power'),
                     'charge_current_request': v.get('charge_state').get('charge_current_request'),
@@ -338,8 +363,9 @@ def get_car_status(vs):
                     'maximum_charging_vehicle': v == max_v
                 }
                 car_status.append(cs)
-            except Exception:
-                pass
+            except Exception as e:
+                print(v.get('vin') + str(e))
+
     return car_status
 
 ################################################################
@@ -389,7 +415,20 @@ if __name__ == '__main__':
         tesla.fetch_token(authorization_response=input('Enter URL after authentication: '))
 
     vehicles = tesla.vehicle_list()
-
+##############################################################################
+##############################################################################
+##############################################################################
+##############################################################################
+##############################################################################
+#    for i in range(0, len(vehicles)):
+#        if vehicles[i].get('vin').upper() == '5YJSA7E21GF130924':
+#            del vehicles[i]
+#            break
+##############################################################################
+##############################################################################
+##############################################################################
+##############################################################################
+##############################################################################
     try:
         last_adjust = time.time()
         while True:
