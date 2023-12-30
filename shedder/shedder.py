@@ -6,6 +6,7 @@ import configparser
 import argparse
 import yaml
 import random
+import copy
 from pathlib import Path
 import os
 from logging.handlers import WatchedFileHandler
@@ -54,6 +55,14 @@ def get_arguments(args=None):
 
     return arguments
 
+def merge_dicts(dest, source):
+    # Merge in defaults
+    for (k, v) in source.items():
+        if k not in dest.keys():
+            dest[k] = v
+        elif isinstance(source.get(k), dict) and isinstance(dest.get(k), dict):
+            merge_dicts(dest.get(k), source.get(k))
+
 ###########################################################
 # Import remote configurable settings
 #
@@ -63,7 +72,8 @@ def get_dynamic_settings(cfg_dir):
     defaults = {
         'control': {
             'max_energy': MAX_PERIOD_ENERGY,
-            'enabled': True
+            'enabled': True,
+            'included_cars': ['5YJSA7E21GF130924', '5YJ3E7EB8KF336792']
         }
     }
 
@@ -74,6 +84,9 @@ def get_dynamic_settings(cfg_dir):
             dyn_settings = yaml.safe_load(f)
     except Exception:
         dyn_settings = defaults
+
+    # Merge in defaults
+    merge_dicts(dyn_settings, defaults)
 
     return dyn_settings
 
@@ -127,7 +140,8 @@ def get_settings(cfg_dir):
             'energy_deadband_down': 0,
         },
         'tesla_client': {
-            'user_id':'someuser@gmail.com'
+            'user_id':'someuser@gmail.com',
+            'update_period': 5
         },
         'logging': {
             'log_level': 'DEBUG',
@@ -159,7 +173,7 @@ def get_settings(cfg_dir):
 
 #     try:
 #         for v in vs:
-#             v.get_vehicle_data()
+#             get_vehicle_data(v)
 #             if v.get('charge_state').get('charging_state').lower() == 'charging':
 #                 if v_return is None:
 #                     v_return = v
@@ -173,16 +187,36 @@ def get_settings(cfg_dir):
 #     return v_return
 
 ###########################################################
+# Update vehicle data if older than <
+#
+def get_vehicle_data(v):
+    prev_ts = 0
+    try:
+        prev_ts = v.timestamp
+    except Exception:
+        pass
+
+    if time.time() - prev_ts > settings.getint('tesla_client', 'update_period'):
+#        v.get_vehicle_data()
+        v.update(v.api('VEHICLE_DATA', endpoints='location_data;drive_state;'
+                            'charge_state;climate_state;vehicle_state;'
+                            'gui_settings;vehicle_config')['response'])
+        v.timestamp = time.time()
+
+    logger.debug(f"{v.get('vin')} updated {ts2iso(v.timestamp)}")
+    pass
+
+###########################################################
 # Find random vehicle from vehicles charging
 #
-def get_random_vehicle(vs):
+def get_random_vehicle(vs, included_cars):
     v_return = None
 
     try:
         l = []
         for v in vs:
-            v.get_vehicle_data()
-            if v.get('charge_state').get('charging_state').lower() == 'charging':
+            get_vehicle_data(v)
+            if v.get('vin') in included_cars and v.get('charge_state').get('charging_state').lower() == 'charging':
                 l.append(v)
         if len(l) > 0:
             v_return = random.choice(l)
@@ -195,14 +229,14 @@ def get_random_vehicle(vs):
 ###########################################################
 # Find vehicle with highest charge power
 #
-def get_max_vehicle(vs):
+def get_max_vehicle(vs, included_cars):
     MIN_CURRENT = 5
     v_return = None
 
     try:
         for v in vs:
-            v.get_vehicle_data()
-            if v.get('charge_state').get('charging_state').lower() == 'charging':
+            get_vehicle_data(v)
+            if v.get('vin') in included_cars and v.get('charge_state').get('charging_state').lower() == 'charging':
                 if v_return is None:
                     v_return = v
                 if v_return.get('charge_state').get('charge_amps') <= MIN_CURRENT:
@@ -218,13 +252,13 @@ def get_max_vehicle(vs):
 ###########################################################
 # Find vehicle with lowest charge power
 #
-def get_min_vehicle(vs):
+def get_min_vehicle(vs, included_cars):
     v_return = None
 
     try:
         for v in vs:
-            v.get_vehicle_data()
-            if v.get('charge_state').get('charging_state').lower() == 'charging':
+            get_vehicle_data(v)
+            if v.get('vin') in included_cars and v.get('charge_state').get('charging_state').lower() == 'charging':
                 if v_return is None:
                     v_return = v
                 if v_return.get('charge_state').get('charge_amps') >= v_return.get('charge_state').get('charge_current_request_max'):
@@ -251,7 +285,7 @@ def adjust(v, up=False):
     try:
         # if not v.available():
         #     v.sync_wake_up()
-        v.get_vehicle_data()
+        get_vehicle_data(v)
 
         max_current = v.get('charge_state').get('charge_current_request_max')
         current_current = v.get('charge_state').get('charge_amps')
@@ -268,7 +302,7 @@ def adjust(v, up=False):
         elif not up and current_current > MIN_CURRENT:
             v.command('CHARGING_AMPS', charging_amps=current_current - 1)
 
-        v.get_vehicle_data()
+        get_vehicle_data(v)
         current_current = v.get('charge_state').get('charge_amps')
 
     except Exception as e:
@@ -328,43 +362,44 @@ def at_location(v):
 ###########################################################
 # Car status
 #
-def get_car_status(vs):
+def get_car_status(vs, included_cars):
     car_status = []
     if vs is not None:
-        min_v = get_min_vehicle(vs)
-        max_v = get_max_vehicle(vs)
+        min_v = get_min_vehicle(vs, included_cars)
+        max_v = get_max_vehicle(vs, included_cars)
         for v in vs:
+            cs = {}
             try:
-
                 # Ref. https://github.com/tdorssers/TeslaPy/discussions/148
-#                v.get_vehicle_data()
-                v.update(v.api('VEHICLE_DATA', endpoints='location_data;'
-                                    'charge_state;climate_state;vehicle_state;'
-                                    'gui_settings;vehicle_config')['response'])
-                v.timestamp = time.time()
+                get_vehicle_data(v)
+                # v.update(v.api('VEHICLE_DATA', endpoints='location_data;drive_state;'
+                #                     'charge_state;climate_state;vehicle_state;'
+                #                     'gui_settings;vehicle_config')['response'])
+                # v.timestamp = time.time()
 
-                cs = {
-                    'vin': v.get('vin'),
-                    'at_location': at_location(v),
-                    'latitude': v.get('drive_state', {}).get('latitude'),
-                    'longitude': v.get('drive_state', {}).get('longitude'),
-                    'car_name': v.get('display_name') or v.get('vehicle_state').get('vehicle_name'),
-                    'charging_state': v.get('charge_state').get('charging_state'),
-                    'charger_power': v.get('charge_state').get('charger_power'),
-                    'charge_current_request': v.get('charge_state').get('charge_current_request'),
-                    'charge_amps': v.get('charge_state').get('charge_amps'),
-                    'battery_level': v.get('charge_state').get('battery_level'),
-                    'charge_current_request_max': v.get('charge_state').get('charge_current_request_max'),
-                    'charger_phases': v.get('charge_state').get('charger_phases'),
-                    'charge_rate': v.get('charge_state').get('charge_rate'),
-                    'timestamp': ts2iso(v.get('charge_state').get('timestamp')/1000),
-                    'avaliable': v.available(),
-                    'minumum_charging_vehicle': v == min_v,
-                    'maximum_charging_vehicle': v == max_v
-                }
-                car_status.append(cs)
+                cs['vin'] = v.get('vin')
+                cs['shedder_enabled'] = (v.get('vin') in included_cars)
+                cs['at_location'] = at_location(v)
+                cs['latitude'] = v.get('drive_state', {}).get('latitude')
+                cs['longitude'] = v.get('drive_state', {}).get('longitude')
+                cs['car_name'] = v.get('display_name') or v.get('vehicle_state').get('vehicle_name')
+                cs['charging_state'] = v.get('charge_state').get('charging_state')
+                cs['charger_power'] = v.get('charge_state').get('charger_power')
+                cs['charge_current_request'] = v.get('charge_state').get('charge_current_request')
+                cs['charge_amps'] = v.get('charge_state').get('charge_amps')
+                cs['battery_level'] = v.get('charge_state').get('battery_level')
+                cs['charge_current_request_max'] = v.get('charge_state').get('charge_current_request_max')
+                cs['charger_phases'] = v.get('charge_state').get('charger_phases')
+                cs['charge_rate'] = v.get('charge_state').get('charge_rate')
+                cs['timestamp'] = ts2iso(v.get('charge_state').get('timestamp')/1000)
+                cs['avaliable'] = v.available()
+                cs['minumum_charging_vehicle'] = v == min_v
+                cs['maximum_charging_vehicle'] = v == max_v
+
             except Exception as e:
                 print(v.get('vin') + str(e))
+            finally:
+                car_status.append(cs)
 
     return car_status
 
@@ -415,6 +450,10 @@ if __name__ == '__main__':
         tesla.fetch_token(authorization_response=input('Enter URL after authentication: '))
 
     vehicles = tesla.vehicle_list()
+    for v in vehicles:
+        v.timestamp = 0
+        get_vehicle_data(v)
+
 ##############################################################################
 ##############################################################################
 ##############################################################################
@@ -432,6 +471,7 @@ if __name__ == '__main__':
     try:
         last_adjust = time.time()
         while True:
+            included_cars = dynamic_settings.get('control').get('included_cars')
             period_status_import = calculator_import.period_status(
                 max_energy=dynamic_settings.get('control').get('max_energy'),
                 duration=settings.getint('times', 'calculation_period_duration'),
@@ -447,11 +487,19 @@ if __name__ == '__main__':
                 'energy_status_import': period_status_import,
                 'energy_status_export': period_status_export,
                 'monthly_status_import': calculator_import.monthly_status(),
-                'cars': get_car_status(vehicles)
+                'cars': get_car_status(vehicles, included_cars),
+                'included_cars': included_cars
             }
             mqtt_client.publish(
                 topic=settings.get('mqtt_client', 'status_topic'),
                 payload=mqtt_status)
+
+            control_current = copy.copy(dynamic_settings)
+            control_current['_hint'] = f"Send message to topic '{settings.get('mqtt_client', 'control_topic')}' to change..."
+
+            mqtt_client.publish(
+                topic=settings.get('mqtt_client', 'control_topic')+'_current',
+                payload=control_current)
 
             if dynamic_settings.get('control').get('enabled'):
 
@@ -465,8 +513,8 @@ if __name__ == '__main__':
                     logger.debug('Adjusting DOWN when energy/power metering is offline')
 
                     # Finn kjøretøy med høyest effekt (som skal justeres NED)
-                    adjust(get_max_vehicle(vehicles), up=False)
-                    adjust(get_random_vehicle(vehicles), up=False)
+                    adjust(get_max_vehicle(vehicles, included_cars), up=False)
+                    adjust(get_random_vehicle(vehicles, included_cars), up=False)
                     last_adjust = time.time()
                 else:
                     if power > remaining_max_power + settings.getint('control', 'energy_deadband_down') and \
@@ -475,8 +523,8 @@ if __name__ == '__main__':
                         logger.debug('Adjusting DOWN ({:.1f}W > {:.1f}W + db)'.format(power, remaining_max_power))
 
                         # Finn kjøretøy med høyest effekt (som skal justeres NED)
-                        adjust(get_max_vehicle(vehicles), up=False)
-                        adjust(get_random_vehicle(vehicles), up=False)
+                        adjust(get_max_vehicle(vehicles, included_cars), up=False)
+                        adjust(get_random_vehicle(vehicles, included_cars), up=False)
                         last_adjust = time.time()
 
                     elif power < remaining_max_power - settings.getint('control', 'energy_deadband_up') \
@@ -485,8 +533,8 @@ if __name__ == '__main__':
                         logger.debug('Adjusting UP ({:.1f}W < {:.1f}W + db)'.format(power, remaining_max_power))
 
                         # Finn kjøretøy med lavest effekt (som skal justeres OPP)
-                        adjust(get_min_vehicle(vehicles), up=True)
-                        adjust(get_random_vehicle(vehicles), up=True)
+                        adjust(get_min_vehicle(vehicles, included_cars), up=True)
+                        adjust(get_random_vehicle(vehicles, included_cars), up=True)
                         last_adjust = time.time()
 
             time.sleep(settings.getint('times', 'loop_sleep'))

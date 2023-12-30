@@ -35,16 +35,16 @@ class MQTTClient:
         self.client.on_connect = self.on_connect
 
         self.client.username_pw_set(
-            self.username, 
+            self.username,
             self.password)
 
         # Configure Last Will and Testament ("death message")
         topic = '{}/$connected'.format(self.client_id)
         self.logger.info('Setting LWT "death message"...')
         self.client.will_set(
-            topic, 
-            payload="False", 
-            qos=0, 
+            topic,
+            payload="False",
+            qos=0,
             retain=True)
 
         self.connected = False
@@ -61,8 +61,8 @@ class MQTTClient:
     #
     def start(self):
         self.client.connect(
-            host=self.host, 
-            port=self.port, 
+            host=self.host,
+            port=self.port,
             keepalive=self.keepalive)
 
         self.client.loop_start()
@@ -78,8 +78,8 @@ class MQTTClient:
             return
 
         new_message = {
-            'topic': message.topic, 
-            'payload': payload, 
+            'topic': message.topic,
+            'payload': payload,
             'timestamp': int(time.time() * 1000)
         }
 
@@ -93,16 +93,16 @@ class MQTTClient:
         if self.connected:
             qos = 0
             retain = False
-            self.logger.info("Publishing message...")
-            self.logger.info(" > topic   : {}".format(topic))
-            self.logger.info(" > payload : {}".format(payload))
-            self.logger.info(" > qos     : {}".format(qos))
-            self.logger.info(" > retain  : {}".format(retain))
+            # self.logger.info("Publishing message...")
+            # self.logger.info(" > topic   : {}".format(topic))
+            # self.logger.info(" > payload : {}".format(payload))
+            # self.logger.info(" > qos     : {}".format(qos))
+            # self.logger.info(" > retain  : {}".format(retain))
 
             result = self.client.publish(
-                topic=topic, 
-                payload=json.dumps(payload, allow_nan=False), 
-                qos=qos, 
+                topic=topic,
+                payload=json.dumps(payload, allow_nan=False),
+                qos=qos,
                 retain=retain)
 
             if result.rc != 0:
@@ -124,9 +124,9 @@ class MQTTClient:
             retain = True
 
             result = self.client.publish(
-                topic=topic, 
-                payload=payload, 
-                qos=qos, 
+                topic=topic,
+                payload=payload,
+                qos=qos,
                 retain=retain)
             if result.rc != 0:
                 self.logger.warning("FAILED")
@@ -140,7 +140,7 @@ class MQTTClient:
                 qos = 0
 
                 (result, _) = self.client.subscribe(
-                    topic=topic, 
+                    topic=topic,
                     qos=qos)
                 if result != mqtt_client.MQTT_ERR_SUCCESS:
                     self.logger.warning("FAILED")
