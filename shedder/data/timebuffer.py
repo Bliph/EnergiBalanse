@@ -1,9 +1,9 @@
 import logging
-import yaml
-import json
 from threading import Thread
 import time
 import copy
+# import json
+import yaml
 
 class TimeBuffer:
 
@@ -60,7 +60,7 @@ class TimeBuffer:
     # Return last tuple in list. None if empty
     #
     def get_last_tuple(self):
-        # Empty list: 
+        # Empty list:
         if len(self.sorted_list) <= 0:
             return None
         else:
@@ -71,21 +71,21 @@ class TimeBuffer:
     #
     def get_index(self, ts: int, from_idx=0, to_idx=None, valid_read_index=False):
 
-        # Empty list: 
+        # Empty list:
         if len(self.sorted_list) <= 0:
             return 0
 
         # Clamp indexes, default: whole list
         from_idx = min(max(from_idx, 0), len(self.sorted_list)-1)
         if to_idx is None:
-            to_idx = len(self.sorted_list) - 1 
+            to_idx = len(self.sorted_list) - 1
         else:
             to_idx = max(min(to_idx, len(self.sorted_list)-1), 0)
 
         # Before first element
         if ts <= self.sorted_list[from_idx][0]:
             return from_idx
-        
+
         # After last element
         elif ts > self.sorted_list[to_idx][0]:
             if not valid_read_index:
@@ -102,15 +102,15 @@ class TimeBuffer:
 
             # Middle index
             m_idx = from_idx + int((to_idx - from_idx)/2)
-            
+
             # Spot on
             if ts == self.sorted_list[m_idx][0]:
                 return m_idx
-            
+
             # Lower half
             elif ts < self.sorted_list[m_idx][0]:
                 return self.get_index(ts, from_idx=from_idx, to_idx=m_idx, valid_read_index=valid_read_index)
-            
+
             # Upper half
             elif ts > self.sorted_list[m_idx][0]:
                 return self.get_index(ts, from_idx=m_idx, to_idx=to_idx, valid_read_index=valid_read_index)
@@ -143,11 +143,11 @@ class TimeBuffer:
 
         # Default: whole list
         if to_ts <= 0:
-            to_ts = a.sorted_list[-1:][0][0]
+            to_ts = self.sorted_list[-1:][0][0]
 
         from_idx = self.get_index(ts=from_ts)
         to_idx = self.get_index(ts=to_ts)
-        
+
         # If to_ts is at last element of range, include last element
         if to_idx < len(self.sorted_list) and to_ts == self.sorted_list[to_idx][0]:
             to_idx += 1
@@ -165,10 +165,10 @@ if __name__ == '__main__':
     import time
     import random
 
-    a = TimeBuffer() 
-    a.insert_sorted(ts = int(time.time()*1000), value='a') 
+    a = TimeBuffer()
+    a.insert_sorted(ts = int(time.time()*1000), value='a')
     time.sleep(random.random())
-    a.insert_sorted(ts = int(time.time()*1000), value='b') 
+    a.insert_sorted(ts = int(time.time()*1000), value='b')
     time.sleep(random.random())
     a.insert_sorted(ts = int(time.time()*1000), value='c')
 

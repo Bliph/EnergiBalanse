@@ -1,34 +1,21 @@
-import paho.mqtt.client as mqtt_client
-import logging
-from logging.handlers import WatchedFileHandler
 import json
 import sys
 import time
+import paho.mqtt.client as mqtt_client
+from log_handler import create_logger
 
 ###################################################################
 #
 #
 class MQTTClient:
-    def __init__(self, client_id, host, port, username, password, keepalive, log_level='DEBUG'):
+    def __init__(self, client_id, host, port, username, password, keepalive, log_dir, log_level='DEBUG'):
         self.client_id = client_id
         self.host = host
         self.port = port
         self.username = username
         self.password = password
         self.keepalive = keepalive
-
-        logger = logging.getLogger('mqtt_client')
-        logger.setLevel(log_level)
-        formatter = logging.Formatter("%(asctime)s [%(levelname)-8s] [%(module)-20s] - %(message)s")
-        handler = logging.StreamHandler(sys.stdout)
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-        handler = WatchedFileHandler('mqtt_client.log')
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-        logger.propagate = False
-        self.logger = logger
-
+        self.logger = create_logger(name='mqtt_client', level=log_level, log_dir=log_dir)
         self.client = mqtt_client.Client()
 
         self.client.on_message = self.on_message
