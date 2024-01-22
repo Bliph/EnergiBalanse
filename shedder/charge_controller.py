@@ -52,7 +52,7 @@ class ChargeController():
         self.logger.warning(f"{vin} Shedding/cutting power after {int(time.time() - self.floor_time.get(vin))}s")
         self.logger.warning(f"{vin} => Postponing charging to {h:2}:00:00")
 
-        v.command('SCHEDULED_CHARGING', enable=True, time=h*60)
+        v.command('SCHEDULED_CHARGING', enable=True, time=h*60 + int(random.random()*10))
         time.sleep(1)
         v.command('STOP_CHARGE')
 
@@ -167,7 +167,7 @@ class ChargeController():
                     self.floor_time[v.get('vin')] = time.time()
                 else:
                     # If trying to reduce charge power lower than min, cut power
-                    if time.time() - self.floor_time[v.get('vin')] > self.max_floor_time:
+                    if time.time() - self.floor_time[v.get('vin')] > (self.max_floor_time + int(random.random()*120)):
                         self.shed(v)
 
             self.get_vehicle_data(v)
