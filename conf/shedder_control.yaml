@@ -4,3 +4,4 @@ control:
   - 5YJ3E7EB8KF336792
   - 5YJSA7E21GF130924
   max_energy: 8000
+  max_floor_time: 301

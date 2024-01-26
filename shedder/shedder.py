@@ -314,7 +314,7 @@ if __name__ == '__main__':
             control_status['_hint'] = f"Send JSON message to topic '{settings.get('mqtt_client', 'control_topic')}' to change..."
 
             mqtt_client.publish(
-                topic=settings.get('mqtt_client', 'control_topic')+'_current',
+                topic=settings.get('mqtt_client', 'control_topic')+'_status',
                 payload=control_status)
 
             if dynamic_settings.get('control').get('enabled'):
