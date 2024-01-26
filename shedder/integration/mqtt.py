@@ -8,12 +8,13 @@ from log_handler import create_logger
 #
 #
 class MQTTClient:
-    def __init__(self, client_id, host, port, username, password, keepalive, log_dir, log_level='DEBUG'):
+    def __init__(self, client_id, host, port, username, password, root_topic, keepalive, log_dir, log_level='DEBUG'):
         self.client_id = client_id
         self.host = host
         self.port = port
         self.username = username
         self.password = password
+        self.root_topic = root_topic
         self.keepalive = keepalive
         self.logger = create_logger(name='mqtt_client', level=log_level, log_dir=log_dir)
         self.client = mqtt_client.Client()
@@ -26,7 +27,7 @@ class MQTTClient:
             self.password)
 
         # Configure Last Will and Testament ("death message")
-        topic = '{}/$connected'.format(self.client_id)
+        topic = f'{self.root_topic}/{self.client_id}/$connected'
         self.logger.info('Setting LWT "death message"...')
         self.client.will_set(
             topic,
@@ -87,7 +88,7 @@ class MQTTClient:
             # self.logger.info(" > retain  : {}".format(retain))
 
             result = self.client.publish(
-                topic=topic,
+                topic=f'{self.root_topic}/{self.client_id}/{topic}',
                 payload=json.dumps(payload, allow_nan=False),
                 qos=qos,
                 retain=retain)
@@ -105,7 +106,7 @@ class MQTTClient:
             self.logger.info("Connected to MQTT broker, rc={}".format(rc))
 
             # Last Will and Testament ("birth message")
-            topic = '{}/$connected'.format(self.client_id)
+            topic = f'{self.root_topic}/{self.client_id}/$connected'
             payload = 'True'
             qos = 0
             retain = True

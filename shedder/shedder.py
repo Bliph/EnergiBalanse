@@ -120,8 +120,9 @@ def get_settings(cfg_dir):
             'power_element': 'power',
             'energy_element': 'energy',
             'timestamp_element': 'timestamp',
-            'status_topic': 'topic/shedder/status',
-            'control_topic': 'topic/shedder/control'
+            'root_topic': 'geiterasen',
+            'status_topic': 'status',
+            'control_topic': 'control'
         },
         'location': {
             'lat': 0.0,
@@ -233,6 +234,7 @@ if __name__ == '__main__':
         port=settings.getint('mqtt_server', 'port'),
         username=settings.get('mqtt_server', 'username'),
         password=settings.get('mqtt_server', 'password'),
+        root_topic=settings.get('mqtt_client', 'root_topic'),
         keepalive=60,
         log_dir=settings.get('logging', 'log_dir'))
 
