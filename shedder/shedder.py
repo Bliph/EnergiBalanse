@@ -64,7 +64,8 @@ def get_dynamic_settings(cfg_dir):
         'control': {
             'max_energy': MAX_PERIOD_ENERGY,
             'enabled': True,
-            'included_cars': ['5YJSA7E21GF130924', '5YJ3E7EB8KF336792']
+            'included_cars': ['5YJSA7E21GF130924', '5YJ3E7EB8KF336792'],
+            'max_floor_time': 300
         }
     }
 
@@ -132,8 +133,7 @@ def get_settings(cfg_dir):
         },
         'tesla_client': {
             'user_id':'someuser@gmail.com',
-            'update_period': 5,
-            'max_floor_time': 300
+            'update_period': 5
         },
         'logging': {
             'log_level': 'DEBUG',
@@ -252,13 +252,20 @@ if __name__ == '__main__':
         logger.debug('URL: {}'.format(tesla.authorization_url()))
         tesla.fetch_token(authorization_response=input('Enter URL after authentication: '))
 
-    vehicles = tesla.vehicle_list()
+    # WORKAROUND: Ref https://github.com/tdorssers/TeslaPy/pull/158
+    # https://github.com/tdorssers/TeslaPy/issues/156
+    # https://github.com/teslamate-org/teslamate/issues/3629
+#    vehicles = tesla.vehicle_list()
+#    vehicles = [teslapy.Vehicle(vehicle=v, tesla=tesla) for v in tesla.api('PRODUCT_LIST')['response']]
+    vehicles = []
+    for v in tesla.api('PRODUCT_LIST')['response']:
+        vehicles.append(teslapy.Vehicle(vehicle=v, tesla=tesla))
 
     cc = ChargeController(
         vehicles=vehicles,
+        settings=dynamic_settings,
         home_location={'lat': settings.getfloat('location', 'lat'), 'lon': settings.getfloat('location', 'lon')},
         update_period=settings.getint('tesla_client', 'update_period'),
-        max_floor_time=settings.getint('tesla_client', 'max_floor_time'),
         log_dir=settings.get('logging', 'log_dir'),
         log_level='DEBUG'
     )
@@ -296,19 +303,19 @@ if __name__ == '__main__':
                 'energy_status_import': period_status_import,
                 'energy_status_export': period_status_export,
                 'monthly_status_import': calculator_import.monthly_status(),
-                'cars': cc.get_car_status(included_cars),
+                'cars': cc.get_car_status(),
                 'included_cars': included_cars
             }
             mqtt_client.publish(
                 topic=settings.get('mqtt_client', 'status_topic'),
                 payload=mqtt_status)
 
-            control_current = copy.copy(dynamic_settings)
-            control_current['_hint'] = f"Send message to topic '{settings.get('mqtt_client', 'control_topic')}' to change..."
+            control_status = copy.copy(dynamic_settings)
+            control_status['_hint'] = f"Send JSON message to topic '{settings.get('mqtt_client', 'control_topic')}' to change..."
 
             mqtt_client.publish(
                 topic=settings.get('mqtt_client', 'control_topic')+'_current',
-                payload=control_current)
+                payload=control_status)
 
             if dynamic_settings.get('control').get('enabled'):
 
@@ -322,8 +329,8 @@ if __name__ == '__main__':
                     logger.debug('Adjusting DOWN when energy/power metering is offline')
 
                     # Finn kjøretøy med høyest effekt (som skal justeres NED)
-                    cc.adjust(cc.get_max_vehicle(included_cars), up=False)
-                    cc.adjust(cc.get_random_vehicle(included_cars), up=False)
+                    cc.adjust(cc.get_max_vehicle(), up=False)
+                    cc.adjust(cc.get_random_vehicle(), up=False)
                     last_adjust = time.time()
                 else:
                     if power > remaining_max_power + settings.getint('control', 'energy_deadband_down') and \
@@ -332,8 +339,8 @@ if __name__ == '__main__':
                         logger.debug('Adjusting DOWN ({:.1f}W > {:.1f}W + db)'.format(power, remaining_max_power))
 
                         # Finn kjøretøy med høyest effekt (som skal justeres NED)
-                        cc.adjust(cc.get_max_vehicle(included_cars), up=False)
-                        cc.adjust(cc.get_random_vehicle(included_cars), up=False)
+                        cc.adjust(cc.get_max_vehicle(), up=False)
+                        cc.adjust(cc.get_random_vehicle(), up=False)
                         last_adjust = time.time()
 
                     elif power < remaining_max_power - settings.getint('control', 'energy_deadband_up') \
@@ -342,8 +349,8 @@ if __name__ == '__main__':
                         logger.debug('Adjusting UP ({:.1f}W < {:.1f}W + db)'.format(power, remaining_max_power))
 
                         # Finn kjøretøy med lavest effekt (som skal justeres OPP)
-                        cc.adjust(cc.get_min_vehicle(included_cars), up=True)
-                        cc.adjust(cc.get_random_vehicle(included_cars), up=True)
+                        cc.adjust(cc.get_min_vehicle(), up=True)
+                        cc.adjust(cc.get_random_vehicle(), up=True)
                         last_adjust = time.time()
 
             time.sleep(settings.getint('times', 'loop_sleep'))

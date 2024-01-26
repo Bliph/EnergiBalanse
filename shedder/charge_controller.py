@@ -8,11 +8,19 @@ class ChargeController():
 
     MIN_CURRENT = 5
 
-    def __init__(self, vehicles, home_location: dict, update_period: int, max_floor_time: int, log_dir: str, log_level: str):
+    def __init__(
+        self,
+        vehicles,
+        settings,
+        home_location: dict,
+        update_period: int,
+        log_dir: str,
+        log_level: str
+    ):
 
         self.vehicles = vehicles
+        self.settings = settings
         self.update_period = update_period
-        self.max_floor_time = max_floor_time
         self.home_location = home_location
         self.logger = log_handler.create_logger(name='charge_controller', log_dir=log_dir, level=log_level)
 
@@ -59,7 +67,8 @@ class ChargeController():
     ###########################################################
     # Find random vehicle from vehicles charging
     #
-    def get_random_vehicle(self, included_cars):
+    def get_random_vehicle(self):
+        included_cars = self.settings.get('control').get('included_cars')
         v_return = None
 
         try:
@@ -79,7 +88,8 @@ class ChargeController():
     ###########################################################
     # Find vehicle with highest charge power
     #
-    def get_max_vehicle(self, included_cars):
+    def get_max_vehicle(self):
+        included_cars = self.settings.get('control').get('included_cars')
         v_return = None
 
         try:
@@ -101,7 +111,8 @@ class ChargeController():
     ###########################################################
     # Find vehicle with lowest charge power
     #
-    def get_min_vehicle(self, included_cars):
+    def get_min_vehicle(self):
+        included_cars = self.settings.get('control').get('included_cars')
         v_return = None
 
         try:
@@ -167,7 +178,7 @@ class ChargeController():
                     self.floor_time[v.get('vin')] = time.time()
                 else:
                     # If trying to reduce charge power lower than min, cut power
-                    if time.time() - self.floor_time[v.get('vin')] > (self.max_floor_time + int(random.random()*120)):
+                    if time.time() - self.floor_time[v.get('vin')] > (self.settings.get('control').get('max_floor_time') + int(random.random()*120)):
                         self.shed(v)
 
             self.get_vehicle_data(v)
@@ -205,11 +216,13 @@ class ChargeController():
     ###########################################################
     # Car status
     #
-    def get_car_status(self, included_cars):
+    def get_car_status(self):
+        included_cars = self.settings.get('control').get('included_cars')
         car_status = []
+
         if self.vehicles is not None:
-            min_v = self.get_min_vehicle(included_cars)
-            max_v = self.get_max_vehicle(included_cars)
+            min_v = self.get_min_vehicle()
+            max_v = self.get_max_vehicle()
             for v in self.vehicles:
                 cs = {}
                 try:
@@ -223,7 +236,7 @@ class ChargeController():
                     cs['vin'] = v.get('vin')
                     cs['shedder_enabled'] = (v.get('vin') in included_cars)
                     cs['shedder_floor_time']  = ts2iso(self.floor_time.get(v.get('vin')))
-                    cs['seconds_until_shed']  = self.max_floor_time - int(time.time() - self.floor_time.get(v.get('vin')))
+                    cs['seconds_until_shed']  = self.settings.get('control').get('max_floor_time') - int(time.time() - self.floor_time.get(v.get('vin')))
                     cs['at_location'] = self.at_location(v)
                     cs['latitude'] = v.get('drive_state', {}).get('latitude')
                     cs['longitude'] = v.get('drive_state', {}).get('longitude')
