@@ -184,7 +184,9 @@ def get_settings(cfg_dir):
 # MQTT subscription callbasck
 #
 def input(message):
-    if message.get('topic').startswith(settings.get('mqtt_client', 'control_topic')):
+    full_control_topic = f"{settings.get('mqtt_client', 'root_topic')}/{APP_NAME}/{settings.get('mqtt_client', 'control_topic')}"
+
+    if message.get('topic').startswith(full_control_topic):
         control = message.get('payload', {})
         dynamic_settings['control'].update(control)
         store_dynamic_settings(cfg_dir, dynamic_settings)
@@ -238,9 +240,10 @@ if __name__ == '__main__':
         keepalive=60,
         log_dir=settings.get('logging', 'log_dir'))
 
+    full_control_topic = f"{settings.get('mqtt_client', 'root_topic')}/{APP_NAME}/{settings.get('mqtt_client', 'control_topic')}"
     topics = [
         settings.get('mqtt_client', 'measurement_topic'),
-        settings.get('mqtt_client', 'control_topic')
+        full_control_topic
     ]
     mqtt_client.set_input(input=input, topics=topics)
     mqtt_client.start()
