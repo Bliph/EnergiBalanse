@@ -327,6 +327,7 @@ if __name__ == '__main__':
                 # Beregn og finn gjenværende effekt
                 remaining_max_power = period_status_import.get('remaining_max_power')
                 power = period_status_import.get('power_avg_1m')
+                power_sun = period_status_export.get('power_avg_1m')
 
                 # Dersom faktisk effekt > gjenværende tillatt max, gjør noe!
                 if period_status_import.get('metering_offline'):
@@ -338,25 +339,57 @@ if __name__ == '__main__':
                     cc.adjust(cc.get_random_vehicle(), up=False)
                     last_adjust = time.time()
                 else:
-                    if power > remaining_max_power + settings.getint('control', 'energy_deadband_down') and \
-                        time.time()-last_adjust > settings.getint('times', 'adjust_period'):
 
-                        logger.debug('Adjusting DOWN ({:.1f}W > {:.1f}W + db)'.format(power, remaining_max_power))
+                    if cc.sun_charge_enabled():
 
-                        # Finn kjøretøy med høyest effekt (som skal justeres NED)
-                        cc.adjust(cc.get_max_vehicle(), up=False)
-                        cc.adjust(cc.get_random_vehicle(), up=False)
-                        last_adjust = time.time()
+                        # Eksporterer strøm
+                        if power <= 0:
+                            if power_sun >= 1000:
 
-                    elif power < remaining_max_power - settings.getint('control', 'energy_deadband_up') \
-                        and time.time()-last_adjust > settings.getint('times', 'adjust_period'):
+                                # Start lading hvis produksjon overstiger grense
+                                if power_sun >= 2000:
+                                    cc.sun_charge_start_minimum()
 
-                        logger.debug('Adjusting UP ({:.1f}W < {:.1f}W + db)'.format(power, remaining_max_power))
+                                logger.debug('SUN MODE Adjusting UP ({:.1f}W)'.format(power))
 
-                        # Finn kjøretøy med lavest effekt (som skal justeres OPP)
-                        cc.adjust(cc.get_min_vehicle(), up=True)
-                        cc.adjust(cc.get_random_vehicle(), up=True)
-                        last_adjust = time.time()
+                                # Finn kjøretøy med lavest effekt (som skal justeres OPP)
+                                cc.adjust(cc.get_min_vehicle(), up=True)
+                                cc.adjust(cc.get_random_vehicle(), up=True)
+                                last_adjust = time.time()
+                            else:
+                                logger.debug('SUN MODE Adjusting DOWN ({:.1f}W)'.format(power))
+
+                                # Finn kjøretøy med høyest effekt (som skal justeres NED)
+                                cc.adjust(cc.get_max_vehicle(), up=False)
+                                cc.adjust(cc.get_random_vehicle(), up=False)
+                                last_adjust = time.time()
+                        else:
+                            # Stopp lading hvis produksjon  går under 0
+                            cc.sun_charge_stop()
+
+                    else:
+
+                        # Over usage: Reduce
+                        if power > remaining_max_power + settings.getint('control', 'energy_deadband_down') and \
+                            time.time()-last_adjust > settings.getint('times', 'adjust_period'):
+
+                            logger.debug('Adjusting DOWN ({:.1f}W > {:.1f}W + db)'.format(power, remaining_max_power))
+
+                            # Finn kjøretøy med høyest effekt (som skal justeres NED)
+                            cc.adjust(cc.get_max_vehicle(), up=False)
+                            cc.adjust(cc.get_random_vehicle(), up=False)
+                            last_adjust = time.time()
+
+                        # Under usage -> increase
+                        elif power < remaining_max_power - settings.getint('control', 'energy_deadband_up') \
+                            and time.time()-last_adjust > settings.getint('times', 'adjust_period'):
+
+                            logger.debug('Adjusting UP ({:.1f}W < {:.1f}W + db)'.format(power, remaining_max_power))
+
+                            # Finn kjøretøy med lavest effekt (som skal justeres OPP)
+                            cc.adjust(cc.get_min_vehicle(), up=True)
+                            cc.adjust(cc.get_random_vehicle(), up=True)
+                            last_adjust = time.time()
 
             time.sleep(settings.getint('times', 'loop_sleep'))
     except KeyboardInterrupt:

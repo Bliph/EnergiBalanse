@@ -4,6 +4,17 @@ import datetime
 import log_handler
 from utils import ts2iso
 
+SUN_CHARGE_START_HOUR = 8
+SUN_CHARGE_STOP_HOUR = 22
+SUN_CHARGE_ENABLE_MINUTE_MAGIC = 30
+START_STOP_GUARD_TIME = 600             # 10 minutes
+
+
+def check_sun_enabled(vehicle_data):
+    charge_start_time = vehicle_data.get('charge_state', {}).get('scheduled_charging_start_time_app', 0) or 0
+    sun_charge_enabled = ((charge_start_time % 60) == SUN_CHARGE_ENABLE_MINUTE_MAGIC)     # Enable sun charge if set to xx:30
+    return sun_charge_enabled
+
 class ChargeController():
 
     MIN_CURRENT = 5
@@ -22,6 +33,8 @@ class ChargeController():
         self.settings = settings
         self.update_period = update_period
         self.home_location = home_location
+        self.last_start_stop = 0
+
         self.logger = log_handler.create_logger(name='charge_controller', log_dir=log_dir, level=log_level)
 
         # Floor current timer: seconds on lowest curent
@@ -44,12 +57,15 @@ class ChargeController():
             pass
 
         if time.time() - prev_ts > self.update_period:
-            v.update(v.api('VEHICLE_DATA', endpoints='location_data;drive_state;'
-                                'charge_state;climate_state;vehicle_state;'
-                                'gui_settings;vehicle_config')['response'])
-            v.timestamp = time.time()
+            try:
+                v.update(v.api('VEHICLE_DATA', endpoints='location_data;drive_state;'
+                                    'charge_state;climate_state;vehicle_state;'
+                                    'gui_settings;vehicle_config')['response'])
+                v.timestamp = time.time()
 
-            self.logger.debug(f"{v.get('vin')} updated {ts2iso(v.timestamp)}")
+                self.logger.debug(f"{v.get('vin')} updated {ts2iso(v.timestamp)}")
+            except Exception as e:
+                self.logger.warning(f"Failed to get vehicle data for {v.get('vin')} at {ts2iso(v.timestamp)}: {e}")
 
     ###########################################################
     #
@@ -63,6 +79,95 @@ class ChargeController():
         v.command('SCHEDULED_CHARGING', enable=True, time=h*60 + int(random.random()*10))
         time.sleep(1)
         v.command('STOP_CHARGE')
+
+    ###########################################################
+    # Find random vehicle from vehicles charging
+    #
+    def sun_charge_enabled(self):
+
+        # Sun charge during day only
+        if datetime.datetime.now().hour < SUN_CHARGE_START_HOUR or datetime.datetime.now().hour >= SUN_CHARGE_STOP_HOUR:
+            return False
+
+        included_cars = self.settings.get('control').get('included_cars')
+        sun_charge_enabled = False
+
+        try:
+            for v in self.vehicles:
+                self.get_vehicle_data(v)
+
+                if v.get('vin') in included_cars:
+                    sun_charge_enabled |= check_sun_enabled(vehicle_data=v)
+                    if sun_charge_enabled:
+                        break
+
+        except Exception as e:
+            self.logger.warning('get_random_vehicle() failed: {}'.format(e))
+
+        return sun_charge_enabled
+
+    ###########################################################
+    # Start charging on vehicles with sun charge enabled
+    #
+    def sun_charge_start_minimum(self):
+
+        # Ensure start/stop is not called too often
+        if (time.time() - self.last_start_stop) < START_STOP_GUARD_TIME:
+            self.logger.warning('sun_charge_start_minimum() not completed because of guard time')
+            return
+
+        self.logger.debug('sun_charge_start_minimum()')
+
+        included_cars = self.settings.get('control').get('included_cars')
+
+        try:
+            for v in self.vehicles:
+                self.get_vehicle_data(v)
+
+                if v.get('vin') in included_cars:
+
+                    # Start charge if (sun enabled and < level and not charging)
+                    if check_sun_enabled(vehicle_data=v) \
+                        and v.get('charge_state').get('battery_level') < v.get('charge_state').get('charge_limit_soc') \
+                        and v.get('charge_state').get('charging_state').lower() != 'charging':
+
+                        v.command('CHARGING_AMPS', charging_amps=self.MIN_CURRENT)
+                        v.command('START_CHARGE')
+                        self.last_start_stop = time.time()
+
+        except Exception as e:
+            self.logger.warning('start_sun_charge_minimum() failed: {}'.format(e))
+
+    ###########################################################
+    # Stop charging on vehicles with sun charge enabled
+    #
+    def sun_charge_stop(self):
+
+        # Ensure start/stop is not called too often
+        if (time.time() - self.last_start_stop) < START_STOP_GUARD_TIME:
+            self.logger.warning('sun_charge_stop() not completed because of guard time')
+            return
+
+        self.logger.debug('sun_charge_stop()')
+
+        included_cars = self.settings.get('control').get('included_cars')
+
+        try:
+            for v in self.vehicles:
+                self.get_vehicle_data(v)
+
+                if v.get('vin') in included_cars:
+
+                    # Start charge if (sun enabled and < level and not charging)
+                    if check_sun_enabled(vehicle_data=v) \
+                        and v.get('charge_state').get('battery_level') < v.get('charge_state').get('charge_limit_soc') \
+                        and v.get('charge_state').get('charging_state').lower() == 'charging':
+
+                        v.command('STOP_CHARGE')
+                        self.last_start_stop = time.time()
+
+        except Exception as e:
+            self.logger.warning('start_sun_charge_minimum() failed: {}'.format(e))
 
     ###########################################################
     # Find random vehicle from vehicles charging
@@ -95,14 +200,15 @@ class ChargeController():
         try:
             for v in self.vehicles:
                 self.get_vehicle_data(v)
-                if v.get('vin') in included_cars and v.get('charge_state').get('charging_state').lower() == 'charging':
-                    if v_return is None:
-                        v_return = v
-                    if v_return.get('charge_state').get('charge_amps') <= self.MIN_CURRENT:
-                        v_return = v
-                        # Check power
-                    elif v.get('charge_state').get('charger_power') >= v_return.get('charge_state').get('charger_power'):
-                        v_return = v
+                if v.get('vin') in included_cars and v.get('charge_state') is not None:
+                    if v.get('charge_state').get('charging_state').lower() == 'charging':
+                        if v_return is None:
+                            v_return = v
+                        if v_return.get('charge_state').get('charge_amps') <= self.MIN_CURRENT:
+                            v_return = v
+                            # Check power
+                        elif v.get('charge_state').get('charger_power') >= v_return.get('charge_state').get('charger_power'):
+                            v_return = v
         except Exception as e:
             self.logger.warning('get_max_vehicle() failed: {}'.format(e))
 
@@ -253,6 +359,7 @@ class ChargeController():
                     cs['avaliable'] = v.available()
                     cs['minumum_charging_vehicle'] = v == min_v
                     cs['maximum_charging_vehicle'] = v == max_v
+                    cs['sun_charge_enabled'] = check_sun_enabled(vehicle_data=v)
 
                 except Exception as e:
                     print(v.get('vin') + str(e))
