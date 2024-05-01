@@ -371,9 +371,9 @@ if __name__ == '__main__':
                             cc.adjust(cc.get_random_vehicle(), up=False)
                             last_adjust = time.time()
 
-                            # Stopp lading hvis produksjon  går under 0
-                            if current_current <= cc.MIN_CURRENT:
-                                cc.sun_charge_stop()
+                            # # Stopp lading hvis produksjon  går under 0
+                            # if current_current <= cc.MIN_CURRENT:
+                            #     cc.sun_charge_stop()
 
                     else:
 

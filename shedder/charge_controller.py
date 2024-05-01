@@ -76,11 +76,28 @@ class ChargeController():
         self.logger.warning(f"{vin} Shedding/cutting power after {int(time.time() - self.floor_time.get(vin))}s")
         self.logger.warning(f"{vin} => Postponing charging to {h:2}:00:00")
 
-        if not self.sun_charge_enabled():
+        if self.sun_charge_enabled():
+            try:
+                if check_sun_enabled(vehicle_data=v) \
+                    and v.get('charge_state').get('battery_level') < v.get('charge_state').get('charge_limit_soc') \
+                    and v.get('charge_state').get('charging_state').lower() == 'charging':
+                    if (time.time() - self.last_start_stop) < START_STOP_GUARD_TIME:
+                        self.logger.warning('sun_charge_stop() not completed because of guard time')
+                        return
+
+                    self.logger.debug('shed() - sun')
+                    v.command('STOP_CHARGE')
+                    self.last_start_stop = time.time()
+
+            except Exception as e:
+                self.logger.warning('start_sun_charge_minimum() failed: {}'.format(e))
+
+        else:
             v.command('SCHEDULED_CHARGING', enable=True, time=h*60 + int(random.random()*10))
-        time.sleep(1)
-        v.command('STOP_CHARGE')
-        self.last_start_stop = time.time()
+            time.sleep(1)
+            self.logger.debug('shed() - normal')
+            v.command('STOP_CHARGE')
+            self.last_start_stop = time.time()
 
     ###########################################################
     # Find random vehicle from vehicles charging
@@ -295,11 +312,12 @@ class ChargeController():
         except Exception as e:
             return 0
 
+        name = v.get('display_name') or v.get('vehicle_state').get('vehicle_name')
         if current_current > 0:
             if up:
-                self.logger.debug('Adjusted {} UP to {}A'.format(v.get('display_name'), current_current))
+                self.logger.debug(f'Adjusted {name} UP to {current_current}A')
             else:
-                self.logger.debug('Adjusted {} DOWN to {}A'.format(v.get('display_name'), current_current))
+                self.logger.debug(f'Adjusted {name} DOWN to {current_current}A')
 
         return current_current
 
