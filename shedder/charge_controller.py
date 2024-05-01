@@ -76,9 +76,11 @@ class ChargeController():
         self.logger.warning(f"{vin} Shedding/cutting power after {int(time.time() - self.floor_time.get(vin))}s")
         self.logger.warning(f"{vin} => Postponing charging to {h:2}:00:00")
 
-        v.command('SCHEDULED_CHARGING', enable=True, time=h*60 + int(random.random()*10))
+        if not self.sun_charge_enabled():
+            v.command('SCHEDULED_CHARGING', enable=True, time=h*60 + int(random.random()*10))
         time.sleep(1)
         v.command('STOP_CHARGE')
+        self.last_start_stop = time.time()
 
     ###########################################################
     # Find random vehicle from vehicles charging
