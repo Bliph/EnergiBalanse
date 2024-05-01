@@ -129,8 +129,6 @@ class ChargeController():
             self.logger.warning('sun_charge_start_minimum() not completed because of guard time')
             return
 
-        self.logger.debug('sun_charge_start_minimum()')
-
         included_cars = self.settings.get('control').get('included_cars')
 
         try:
@@ -144,6 +142,8 @@ class ChargeController():
                         and v.get('charge_state').get('battery_level') < v.get('charge_state').get('charge_limit_soc') \
                         and v.get('charge_state').get('charging_state').lower() != 'charging':
 
+                        name = v.get('display_name') or v.get('vehicle_state').get('vehicle_name')
+                        self.logger.debug(f'sun_charge_start_minimum() {name}')
                         v.command('CHARGING_AMPS', charging_amps=self.MIN_CURRENT)
                         v.command('START_CHARGE')
                         self.last_start_stop = time.time()
@@ -326,7 +326,8 @@ class ChargeController():
 
             if (abs(lat - self.home_location.get('lat')) > 0.001 or
                 abs(lon - self.home_location.get('lon')) > 0.001):
-                self.logger.debug('Not home!')
+                name = v.get('display_name') or v.get('vehicle_state').get('vehicle_name')
+                self.logger.debug(f'{name} ikke hjemme!')
                 return False
         except Exception as e:
             pass
