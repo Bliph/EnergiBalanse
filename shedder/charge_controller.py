@@ -4,17 +4,6 @@ import datetime
 import log_handler
 from utils import ts2iso
 
-SUN_CHARGE_START_HOUR = 9
-SUN_CHARGE_STOP_HOUR = 21
-SUN_CHARGE_ENABLE_MINUTE_MAGIC = 30
-START_STOP_GUARD_TIME = 600             # 10 minutes
-
-
-def check_sun_enabled(vehicle_data):
-    charge_start_time = vehicle_data.get('charge_state', {}).get('scheduled_charging_start_time_app', 0) or 0
-    sun_charge_enabled = ((charge_start_time % 60) == SUN_CHARGE_ENABLE_MINUTE_MAGIC)     # Enable sun charge if set to xx:30
-    return sun_charge_enabled
-
 class ChargeController():
 
     MIN_CURRENT = 5
@@ -45,6 +34,11 @@ class ChargeController():
             self.floor_time[v.get('vin')] = time.time()
 
             self.get_vehicle_data(v)
+
+    def check_sun_enabled(self, vehicle_data):
+        charge_start_time = vehicle_data.get('charge_state', {}).get('scheduled_charging_start_time_app', 0) or 0
+        sun_charge_enabled = ((charge_start_time % 60) == self.settings.get('control').get('sun_charge_enable_minute_magic'))     # Enable sun charge if set to xx:30
+        return sun_charge_enabled
 
     ###########################################################
     # Update vehicle data if older than <
@@ -78,10 +72,10 @@ class ChargeController():
 
         if self.sun_charge_enabled():
             try:
-                if check_sun_enabled(vehicle_data=v) \
+                if self.check_sun_enabled(vehicle_data=v) \
                     and v.get('charge_state').get('battery_level') < v.get('charge_state').get('charge_limit_soc') \
                     and v.get('charge_state').get('charging_state').lower() == 'charging':
-                    if (time.time() - self.last_start_stop) < START_STOP_GUARD_TIME:
+                    if (time.time() - self.last_start_stop) < self.settings.get('control').get('start_stop_guard_time'):
                         self.logger.warning('sun_charge_stop() not completed because of guard time')
                         return
 
@@ -105,7 +99,7 @@ class ChargeController():
     def sun_charge_enabled(self):
 
         # Sun charge during day only
-        if datetime.datetime.now().hour < SUN_CHARGE_START_HOUR or datetime.datetime.now().hour >= SUN_CHARGE_STOP_HOUR:
+        if datetime.datetime.now().hour < self.settings.get('control').get('sun_charge_start_hour') or datetime.datetime.now().hour >= self.settings.get('control').get('sun_charge_stop_hour'):
             return False
 
         included_cars = self.settings.get('control').get('included_cars')
@@ -116,7 +110,7 @@ class ChargeController():
                 self.get_vehicle_data(v)
 
                 if v.get('vin') in included_cars:
-                    sun_charge_enabled |= check_sun_enabled(vehicle_data=v)
+                    sun_charge_enabled |= self.check_sun_enabled(vehicle_data=v)
                     if sun_charge_enabled:
                         break
 
@@ -131,7 +125,7 @@ class ChargeController():
     def sun_charge_start_minimum(self):
 
         # Ensure start/stop is not called too often
-        if (time.time() - self.last_start_stop) < START_STOP_GUARD_TIME:
+        if (time.time() - self.last_start_stop) < self.settings.get('control').get('start_stop_guard_time'):
             self.logger.warning('sun_charge_start_minimum() not completed because of guard time')
             return
 
@@ -146,7 +140,7 @@ class ChargeController():
                 if v.get('vin') in included_cars:
 
                     # Start charge if (sun enabled and < level and not charging)
-                    if check_sun_enabled(vehicle_data=v) \
+                    if self.check_sun_enabled(vehicle_data=v) \
                         and v.get('charge_state').get('battery_level') < v.get('charge_state').get('charge_limit_soc') \
                         and v.get('charge_state').get('charging_state').lower() != 'charging':
 
@@ -163,7 +157,7 @@ class ChargeController():
     def sun_charge_stop(self):
 
         # Ensure start/stop is not called too often
-        if (time.time() - self.last_start_stop) < START_STOP_GUARD_TIME:
+        if (time.time() - self.last_start_stop) < self.settings.get('control').get('start_stop_guard_time'):
             self.logger.warning('sun_charge_stop() not completed because of guard time')
             return
 
@@ -178,7 +172,7 @@ class ChargeController():
                 if v.get('vin') in included_cars:
 
                     # Start charge if (sun enabled and < level and not charging)
-                    if check_sun_enabled(vehicle_data=v) \
+                    if self.check_sun_enabled(vehicle_data=v) \
                         and v.get('charge_state').get('battery_level') < v.get('charge_state').get('charge_limit_soc') \
                         and v.get('charge_state').get('charging_state').lower() == 'charging':
 
@@ -379,7 +373,7 @@ class ChargeController():
                     cs['avaliable'] = v.available()
                     cs['minumum_charging_vehicle'] = v == min_v
                     cs['maximum_charging_vehicle'] = v == max_v
-                    cs['sun_charge_enabled'] = check_sun_enabled(vehicle_data=v)
+                    cs['sun_charge_enabled'] = self.check_sun_enabled(vehicle_data=v)
 
                 except Exception as e:
                     print(v.get('vin') + str(e))

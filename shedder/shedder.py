@@ -59,13 +59,25 @@ def merge_dicts(dest, source):
 #
 def get_dynamic_settings(cfg_dir):
     MAX_PERIOD_ENERGY = 8000
+    SUN_CHARGE_START_HOUR = 9
+    SUN_CHARGE_STOP_HOUR = 21
+    START_STOP_GUARD_TIME = 600             # 10 minutes
+    SUN_CHARGE_ENABLE_MINUTE_MAGIC = 30
+    SUN_EXPORT_CHARGE_LEVEL = 500
+    SUN_EXPORT_CHARGE_TRIGGER = 1500
 
     defaults = {
         'control': {
             'max_energy': MAX_PERIOD_ENERGY,
             'enabled': True,
             'included_cars': ['5YJSA7E21GF130924', '5YJ3E7EB8KF336792'],
-            'max_floor_time': 300
+            'max_floor_time': 300,
+            'sun_charge_start_hour': SUN_CHARGE_START_HOUR,
+            'sun_charge_stop_hour': SUN_CHARGE_STOP_HOUR,
+            'start_stop_guard_time': START_STOP_GUARD_TIME,
+            'sun_charge_enable_minute_magic': SUN_CHARGE_ENABLE_MINUTE_MAGIC,
+            'sun_export_charge_level': SUN_EXPORT_CHARGE_LEVEL,
+            'sun_export_charge_trigger': SUN_EXPORT_CHARGE_TRIGGER,
         }
     }
 
@@ -345,10 +357,10 @@ if __name__ == '__main__':
 
                         # Eksporterer strøm (use instant power)
                         if power_import_instant <= 0:
-                            if power_export_instant >= 1000:
+                            if power_export_instant >= dynamic_settings.get('control').get('sun_export_charge_level'):
 
                                 # Start lading hvis produksjon overstiger grense
-                                if power_export_instant >= 2000:
+                                if power_export_instant >= dynamic_settings.get('control').get('sun_export_charge_trigger'):
                                     cc.sun_charge_start_minimum()
 
                                 logger.debug(f'SUN MODE Adjusting UP (export {power_export_instant:.1f}W, import {power_import_instant:.1f}W)')
