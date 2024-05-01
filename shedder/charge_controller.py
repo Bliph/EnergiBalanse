@@ -4,8 +4,8 @@ import datetime
 import log_handler
 from utils import ts2iso
 
-SUN_CHARGE_START_HOUR = 10
-SUN_CHARGE_STOP_HOUR = 20
+SUN_CHARGE_START_HOUR = 9
+SUN_CHARGE_STOP_HOUR = 21
 SUN_CHARGE_ENABLE_MINUTE_MAGIC = 30
 START_STOP_GUARD_TIME = 600             # 10 minutes
 
