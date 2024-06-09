@@ -48,18 +48,19 @@ class ChargeController():
         try:
             prev_ts = v.timestamp
         except Exception:
-            pass
+            self.logger.warning(f"Failed to read timestamp: {e}")
 
         if time.time() - prev_ts > self.update_period:
             try:
                 v.update(v.api('VEHICLE_DATA', endpoints='location_data;drive_state;'
                                     'charge_state;climate_state;vehicle_state;'
                                     'gui_settings;vehicle_config')['response'])
-                v.timestamp = time.time()
 
                 self.logger.debug(f"{v.get('vin')} updated {ts2iso(v.timestamp)}")
             except Exception as e:
                 self.logger.warning(f"Failed to get vehicle data for {v.get('vin')} at {ts2iso(v.timestamp)}: {e}")
+            finally:
+                v.timestamp = time.time()
 
     ###########################################################
     #
