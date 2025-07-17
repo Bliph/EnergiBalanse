@@ -72,16 +72,22 @@ sudo systemctl enable "jofo-$SYSTEM_NAME.service"
 echo "DONE"
 
 ################################################################################
-# Creating virtual environment
+# Installing python/venv
 ################################################################################
 
-echo "Creating virtual environment..."
+echo "Installing python/venv..."
 sudo add-apt-repository ppa:deadsnakes/ppa -y
 sudo apt update -y
 sudo apt install python3.12 -y
 sudo apt install python3.12-venv -y
-
 python3.12 -m ensurepip --upgrade
+
+
+################################################################################
+# Creating virtual environment
+################################################################################
+
+echo "Creating virtual environment..."
 python3.12 -m venv "/opt/jofo/$SYSTEM_NAME"
 
 echo "Activating environment..."
