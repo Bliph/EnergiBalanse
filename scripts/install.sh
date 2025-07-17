@@ -47,8 +47,13 @@ echo "DONE"
 ################################################################################
 
 echo "Creating virtual environment..."
+sudo add-apt-repository ppa:deadsnakes/ppa -y
+sudo apt update -y
+sudo apt install python3.12 -y
+sudo apt install python3.12-venv -y
 
-python3 -m venv "/opt/jofo/$SYSTEM_NAME"
+python3.12 -m ensurepip --upgrade
+python3.12 -m venv "/opt/jofo/$SYSTEM_NAME"
 
 echo "Activating environment..."
 
@@ -62,7 +67,7 @@ echo "DONE"
 
 echo "Installing Python modules..."
 
-pip3 install -r requirements.txt
+pip3.12 install -r requirements.txt
 
 echo "Deactivating environment..."
 deactivate
