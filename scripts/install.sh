@@ -43,6 +43,23 @@ create_directory "/var/log/jofo/$SYSTEM_NAME" "$USER:$GROUP"
 echo "DONE"
 
 ################################################################################
+# Copy application files
+################################################################################
+
+echo "Copying application files..."
+
+cp -v -r "$SYSTEM_NAME/"* "/opt/jofo/$SYSTEM_NAME/"
+
+echo "DONE"
+
+echo "Copying configuration files..."
+
+# Copy with interactive on config files
+cp -i -r -v "conf/"* "/etc/opt/jofo/$SYSTEM_NAME"
+
+echo "DONE"
+
+################################################################################
 # Creating virtual environment
 ################################################################################
 
@@ -71,23 +88,6 @@ pip3.12 install -r requirements.txt
 
 echo "Deactivating environment..."
 deactivate
-
-echo "DONE"
-
-################################################################################
-# Copy application files
-################################################################################
-
-echo "Copying application files..."
-
-cp -v -r "$SYSTEM_NAME/"* "/opt/jofo/$SYSTEM_NAME/"
-
-echo "DONE"
-
-echo "Copying configuration files..."
-
-# Copy with interactive on config files
-cp -i -r -v "conf/"* "/etc/opt/jofo/$SYSTEM_NAME"
 
 echo "DONE"
 
