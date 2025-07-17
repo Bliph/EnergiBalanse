@@ -135,7 +135,7 @@ class ChargeController():
                     self.last_start_stop = time.time()
 
             except Exception as e:
-                self.logger.warning('start_sun_charge_minimum() failed: {}'.format(e))
+                self.logger.warning('shed() failed: {}'.format(e))
 
         else:
             # NOTE: Wake
@@ -196,6 +196,7 @@ class ChargeController():
 
                     # Start charge if (sun enabled and < level and not charging)
                     if self.check_sun_enabled(vehicle_data=v) \
+                        and self.at_location(v) \
                         and v.get('charge_state').get('battery_level') < v.get('charge_state').get('charge_limit_soc') \
                         and v.get('charge_state').get('charging_state').lower() != 'charging':
 
@@ -243,7 +244,7 @@ class ChargeController():
                         self.last_start_stop = time.time()
 
         except Exception as e:
-            self.logger.warning('start_sun_charge_minimum() failed: {}'.format(e))
+            self.logger.warning('sun_charge_stop() failed: {}'.format(e))
 
     ###########################################################
     # Find random vehicle from vehicles charging
