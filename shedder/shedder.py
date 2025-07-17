@@ -19,11 +19,11 @@ from log_handler import create_logger
 # https://github.com/tdorssers/TeslaPy
 # https://github.com/nside/pytesla (old)
 
-#DEAD_BAND = 300     # Current dead band when increasing charging current
-#ADJUST_TIME = 30    # Min time in sec between adjustments
+# DEAD_BAND = 300     # Current dead band when increasing charging current
+# ADJUST_TIME = 30    # Min time in sec between adjustments
 
-#PERIOD_DURATION = 3600
-#SETTINGS_TOPIC_PREFIX = 'geiterasen/shedd/settings'
+# PERIOD_DURATION = 3600
+# SETTINGS_TOPIC_PREFIX = 'geiterasen/shedd/settings'
 
 __version__ = '0.0.1c'
 APP_NAME = os.path.basename(__file__).split('.')[0]
@@ -272,8 +272,8 @@ if __name__ == '__main__':
     # WORKAROUND: Ref https://github.com/tdorssers/TeslaPy/pull/158
     # https://github.com/tdorssers/TeslaPy/issues/156
     # https://github.com/teslamate-org/teslamate/issues/3629
-#    vehicles = tesla.vehicle_list()
-#    vehicles = [teslapy.Vehicle(vehicle=v, tesla=tesla) for v in tesla.api('PRODUCT_LIST')['response']]
+    #    vehicles = tesla.vehicle_list()
+    #    vehicles = [teslapy.Vehicle(vehicle=v, tesla=tesla) for v in tesla.api('PRODUCT_LIST')['response']]
     vehicles = []
     for v in tesla.api('PRODUCT_LIST')['response']:
         vehicles.append(teslapy.Vehicle(vehicle=v, tesla=tesla))
@@ -287,22 +287,24 @@ if __name__ == '__main__':
         log_level='DEBUG'
     )
 
-##############################################################################
-##############################################################################
-##############################################################################
-##############################################################################
-##############################################################################
-#    for i in range(0, len(vehicles)):
-#        if vehicles[i].get('vin').upper() == '5YJSA7E21GF130924':
-#            del vehicles[i]
-#            break
-##############################################################################
-##############################################################################
-##############################################################################
-##############################################################################
-##############################################################################
+    ##############################################################################
+    ##############################################################################
+    ##############################################################################
+    ##############################################################################
+    ##############################################################################
+    #    for i in range(0, len(vehicles)):
+    #        if vehicles[i].get('vin').upper() == '5YJSA7E21GF130924':
+    #            del vehicles[i]
+    #            break
+    ##############################################################################
+    ##############################################################################
+    ##############################################################################
+    ##############################################################################
+    ##############################################################################
     try:
         last_adjust = time.time()
+        last_adjust_sun = time.time()
+
         while True:
             included_cars = dynamic_settings.get('control').get('included_cars')
             period_status_import = calculator_import.period_status(
@@ -348,10 +350,15 @@ if __name__ == '__main__':
                     logger.debug('Adjusting DOWN when energy/power metering is offline')
 
                     # Finn kjøretøy med høyest effekt (som skal justeres NED)
-                    cc.adjust(cc.get_max_vehicle(), up=False)
+                    # cc.adjust(cc.get_max_vehicle(), up=False)
                     cc.adjust(cc.get_random_vehicle(), up=False)
                     last_adjust = time.time()
+                    last_adjust_sun = time.time()
                 else:
+
+                    logger.debug(
+                        f"At location/sun mode/sun enabled: {cc.count_at_location()}/{cc.count_sun_mode_at_location()}/{cc.sun_charge_enabled()}"
+                    )
 
                     if cc.sun_charge_enabled():
 
@@ -366,28 +373,33 @@ if __name__ == '__main__':
                                 logger.debug(f'SUN MODE Adjusting UP (export {power_export_instant:.1f}W, import {power_import_instant:.1f}W)')
 
                                 # Finn kjøretøy med lavest effekt (som skal justeres OPP)
-                                cc.adjust(cc.get_min_vehicle(), up=True)
-                                cc.adjust(cc.get_random_vehicle(), up=True)
-                                last_adjust = time.time()
+                                #  cc.adjust(cc.get_min_vehicle(), up=True)
+                                cc.adjust(cc.get_random_vehicle(sun_mode=True), up=True)
+                                last_adjust_sun = time.time()
                             else:
                                 logger.debug(f'SUN MODE Adjusting DOWN (export {power_export_instant:.1f}W, import {power_import_instant:.1f}W)')
 
                                 # Finn kjøretøy med høyest effekt (som skal justeres NED)
-                                cc.adjust(cc.get_max_vehicle(), up=False)
-                                cc.adjust(cc.get_random_vehicle(), up=False)
-                                last_adjust = time.time()
+                                # cc.adjust(cc.get_max_vehicle(), up=False)
+                                cc.adjust(
+                                    cc.get_random_vehicle(sun_mode=True), up=False
+                                )
+                                last_adjust_sun = time.time()
                         else:
                             logger.debug(f'SUN MODE Adjusting DOWN to cut-off (export {power_export_instant:.1f}W, import {power_import_instant:.1f}W)')
 
-                            current_current = cc.adjust(cc.get_max_vehicle(), up=False)
-                            cc.adjust(cc.get_random_vehicle(), up=False)
-                            last_adjust = time.time()
+                            #                            current_current = cc.adjust(cc.get_max_vehicle(), up=False)
+                            current_current = cc.adjust(
+                                cc.get_random_vehicle(sun_mode=True), up=False
+                            )
+                            last_adjust_sun = time.time()
 
                             # # Stopp lading hvis produksjon  går under 0
                             # if current_current <= cc.MIN_CURRENT:
                             #     cc.sun_charge_stop()
 
-                    else:
+                    # Normal charge for all NOT in sun mode
+                    if not cc.sun_charge_enabled() or cc.count_at_location() > cc.count_sun_mode_at_location():
 
                         # Over usage: Reduce
                         if power > remaining_max_power + settings.getint('control', 'energy_deadband_down') and \
@@ -396,7 +408,7 @@ if __name__ == '__main__':
                             logger.debug('Adjusting DOWN ({:.1f}W > {:.1f}W + db)'.format(power, remaining_max_power))
 
                             # Finn kjøretøy med høyest effekt (som skal justeres NED)
-                            cc.adjust(cc.get_max_vehicle(), up=False)
+                            # cc.adjust(cc.get_max_vehicle(), up=False)
                             cc.adjust(cc.get_random_vehicle(), up=False)
                             last_adjust = time.time()
 
@@ -407,7 +419,7 @@ if __name__ == '__main__':
                             logger.debug('Adjusting UP ({:.1f}W < {:.1f}W + db)'.format(power, remaining_max_power))
 
                             # Finn kjøretøy med lavest effekt (som skal justeres OPP)
-                            cc.adjust(cc.get_min_vehicle(), up=True)
+                            # cc.adjust(cc.get_min_vehicle(), up=True)
                             cc.adjust(cc.get_random_vehicle(), up=True)
                             last_adjust = time.time()
 

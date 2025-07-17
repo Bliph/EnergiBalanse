@@ -2,11 +2,13 @@ import time
 import random
 import datetime
 import log_handler
+from requests.exceptions import HTTPError
 from utils import ts2iso
 
 class ChargeController():
 
     MIN_CURRENT = 5
+    VEHICLE_SLEEP_TIME = 16*60
 
     def __init__(
         self,
@@ -38,29 +40,75 @@ class ChargeController():
     def check_sun_enabled(self, vehicle_data):
         charge_start_time = vehicle_data.get('charge_state', {}).get('scheduled_charging_start_time_app', 0) or 0
         sun_charge_enabled = ((charge_start_time % 60) == self.settings.get('control').get('sun_charge_enable_minute_magic'))     # Enable sun charge if set to xx:30
-        return sun_charge_enabled
+        cheduled_enabled = (vehicle_data.get('charge_state', {}).get('scheduled_charging_mode') or "").lower() != "off"
+        n = vehicle_data.get("display_name", "?") or vehicle_data.get("vehicle_state", {}).get("vehicle_name", "?")
+        return sun_charge_enabled and cheduled_enabled
 
     ###########################################################
     # Update vehicle data if older than <
     #
-    def get_vehicle_data(self, v):
+    def get_vehicle_data(self, v, awake=False):
         prev_ts = 0
         try:
             prev_ts = v.timestamp
         except Exception:
             self.logger.warning(f"Failed to read timestamp: {e}")
 
-        if time.time() - prev_ts > self.update_period:
+        if awake or time.time() - prev_ts > self.update_period:
             try:
-                v.update(v.api('VEHICLE_DATA', endpoints='location_data;drive_state;'
-                                    'charge_state;climate_state;vehicle_state;'
-                                    'gui_settings;vehicle_config')['response'])
+                sleep_time = self.settings.get("control").get("sleep_time", {}).get(v.get("vin"), 0) or 0
 
-                self.logger.debug(f"{v.get('vin')} updated {ts2iso(v.timestamp)}")
+                v.get_vehicle_summary()
+                prev_charge_ts = v.get("charge_state", {}).get("timestamp", 0) / 1000
+
+                if (awake or v.get("charge_state") is None) and not v.available():
+                    self.logger.info(
+                        f"Waking up vehicle {v.get('vin')} {v.get('display_name', '?') or v.get('vehicle_state', {}).get('vehicle_name', '?')}"
+                    )
+                    v.sync_wake_up()
+
+                if (
+                    awake
+                    or v.get("charge_state") is None
+                    or (v.get("charge_state", {}).get("charging_state") or "").lower()
+                    == "charging"
+                    or time.time() - prev_charge_ts > sleep_time
+                ):
+
+                    # NOTE: Keep awake
+                    v.update(v.api('VEHICLE_DATA', endpoints='location_data;drive_state;'
+                                        'charge_state;climate_state;vehicle_state;'
+                                        'gui_settings;vehicle_config')['response'])
+
+                    n = v.get("display_name", "?") or v.get("vehicle_state", {}).get(
+                        "vehicle_name", "?"
+                    )
+                    ts = int(v.get("charge_state", {}).get("timestamp", 0) / 1000)
+                    self.logger.debug(f"{v.get('vin')} {n} updated {ts2iso(ts)}")
+
+                else:
+                    n = v.get("display_name", "?") or v.get("vehicle_state", {}).get("vehicle_name", "?")
+                    t = int(prev_charge_ts + sleep_time - time.time())
+                    self.logger.debug(f"{v.get('vin')} {n} polling postponed {t // 60}m {t % 60}s (not charging) to avoid keeping vehicle awake")
+
+            except HTTPError as httpe:
+                if httpe.response.status_code == 408 and (
+                    httpe.response.reason.find("offline") > 0
+                    or httpe.response.reason.find("unavailab") > 0
+                ):
+                    self.logger.info(
+                        f"Vehicle {v.get('vin')} unavailable {ts2iso(time.time())}: {httpe.response.reason}"
+                    )
+                else:
+                    self.logger.warning(
+                        f"Failed to get vehicle data for {v.get('vin')} at {ts2iso(time.time())}: {e}"
+                    )
+
             except Exception as e:
-                self.logger.warning(f"Failed to get vehicle data for {v.get('vin')} at {ts2iso(v.timestamp)}: {e}")
+                self.logger.warning(f"Failed to get vehicle data for {v.get('vin')} at {ts2iso(time.time())}: {e}")
+
             finally:
-                v.timestamp = time.time()
+                pass
 
     ###########################################################
     #
@@ -81,6 +129,8 @@ class ChargeController():
                         return
 
                     self.logger.debug('shed() - sun')
+
+                    # NOTE: Wake
                     v.command('STOP_CHARGE')
                     self.last_start_stop = time.time()
 
@@ -88,10 +138,16 @@ class ChargeController():
                 self.logger.warning('start_sun_charge_minimum() failed: {}'.format(e))
 
         else:
-            v.command('SCHEDULED_CHARGING', enable=True, time=h*60 + int(random.random()*10))
+            # NOTE: Wake
+            v.command(
+                "SCHEDULED_CHARGING",
+                enable=True,
+                time=h * 60 + int(random.random() * 10),
+            )
             time.sleep(1)
             self.logger.debug('shed() - normal')
-            v.command('STOP_CHARGE')
+            # NOTE: Wake
+            v.command("STOP_CHARGE")
             self.last_start_stop = time.time()
 
     ###########################################################
@@ -125,10 +181,10 @@ class ChargeController():
     #
     def sun_charge_start_minimum(self):
 
-        # Ensure start/stop is not called too often
-        if (time.time() - self.last_start_stop) < self.settings.get('control').get('start_stop_guard_time'):
-            self.logger.warning('sun_charge_start_minimum() not completed because of guard time')
-            return
+        # # Ensure start/stop is not called too often
+        # if (time.time() - self.last_start_stop) < self.settings.get('control').get('start_stop_guard_time'):
+        #     self.logger.warning('sun_charge_start_minimum() not completed because of guard time')
+        #     return
 
         included_cars = self.settings.get('control').get('included_cars')
 
@@ -145,9 +201,14 @@ class ChargeController():
 
                         name = v.get('display_name') or v.get('vehicle_state').get('vehicle_name')
                         self.logger.debug(f'sun_charge_start_minimum() {name}')
-                        v.command('CHARGING_AMPS', charging_amps=self.MIN_CURRENT)
-                        v.command('START_CHARGE')
-                        self.last_start_stop = time.time()
+                        self.get_vehicle_data(v, awake=True)
+
+                        if (time.time() - self.last_start_stop) < self.settings.get('control').get('start_stop_guard_time'):
+                            self.logger.warning(f'sun_charge_start_minimum({name}) not completed because of guard time')
+                        else:
+                            v.command('CHARGING_AMPS', charging_amps=self.MIN_CURRENT)
+                            v.command('START_CHARGE')
+                            self.last_start_stop = time.time()
 
         except Exception as e:
             self.logger.warning('start_sun_charge_minimum() failed: {}'.format(e))
@@ -177,7 +238,8 @@ class ChargeController():
                         and v.get('charge_state').get('battery_level') < v.get('charge_state').get('charge_limit_soc') \
                         and v.get('charge_state').get('charging_state').lower() == 'charging':
 
-                        v.command('STOP_CHARGE')
+                        # NOTE: Wake
+                        v.command("STOP_CHARGE")
                         self.last_start_stop = time.time()
 
         except Exception as e:
@@ -186,7 +248,7 @@ class ChargeController():
     ###########################################################
     # Find random vehicle from vehicles charging
     #
-    def get_random_vehicle(self):
+    def get_random_vehicle(self, sun_mode=False):
         included_cars = self.settings.get('control').get('included_cars')
         v_return = None
 
@@ -195,7 +257,9 @@ class ChargeController():
             for v in self.vehicles:
                 self.get_vehicle_data(v)
                 if v.get('vin') in included_cars and v.get('charge_state').get('charging_state').lower() == 'charging':
-                    l.append(v)
+                    if (not sun_mode) or (sun_mode and self.check_sun_enabled(v)):
+                        l.append(v)
+
             if len(l) > 0:
                 v_return = random.choice(l)
 
@@ -285,6 +349,7 @@ class ChargeController():
                 return 0
 
             if up and current_current < max_current:
+                # NOTE: Wake
                 v.command('CHARGING_AMPS', charging_amps=current_current + 1)
 
                 # Reset floor current timer
@@ -292,7 +357,8 @@ class ChargeController():
 
             elif down:
                 if current_current > self.MIN_CURRENT:
-                    v.command('CHARGING_AMPS', charging_amps=current_current - 1)
+                    # NOTE: Wake
+                    v.command("CHARGING_AMPS", charging_amps=current_current - 1)
 
                     # Reset floor current timer
                     self.floor_time[v.get('vin')] = time.time()
@@ -310,9 +376,9 @@ class ChargeController():
         name = v.get('display_name') or v.get('vehicle_state').get('vehicle_name')
         if current_current > 0:
             if up:
-                self.logger.debug(f'Adjusted {name} UP to {current_current}A')
+                self.logger.debug(f'Adjusted {name} UP to {current_current+1}A')
             else:
-                self.logger.debug(f'Adjusted {name} DOWN to {current_current}A')
+                self.logger.debug(f'Adjusted {name} DOWN to {current_current-1}A')
 
         return current_current
 
@@ -334,6 +400,30 @@ class ChargeController():
             pass
 
         return True
+
+    def count_at_location(self):
+        n = 0
+        try:
+            for v in self.vehicles:
+                self.get_vehicle_data(v)
+                if self.at_location(v):
+                    n += 1
+        except Exception as e:
+            self.logger.warning(f"count_at_location() failed: {str(e)}")
+
+        return n
+
+    def count_sun_mode_at_location(self):
+        n = 0
+        try:
+            for v in self.vehicles:
+                self.get_vehicle_data(v)
+                if self.check_sun_enabled(v) and self.at_location(v):
+                    n += 1
+        except Exception as e:
+            self.logger.warning(f"count_sun_mode_at_location() failed: {str(e)}")
+
+        return n
 
     ###########################################################
     # Car status
