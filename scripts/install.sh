@@ -60,6 +60,18 @@ cp -i -r -v "conf/"* "/etc/opt/jofo/$SYSTEM_NAME"
 echo "DONE"
 
 ################################################################################
+# Install as service
+################################################################################
+
+echo "Installing as service..."
+
+sudo cp -v "scripts/jofo-$SYSTEM_NAME.service" "/etc/systemd/system/"
+
+sudo systemctl enable "jofo-$SYSTEM_NAME.service"
+
+echo "DONE"
+
+################################################################################
 # Creating virtual environment
 ################################################################################
 
@@ -99,18 +111,6 @@ echo "Configuring log rotate..."
 
 # Copy with interactive on config files
 sudo cp -i -v "scripts/$SYSTEM_NAME" "/etc/logrotate.d/"
-
-################################################################################
-# Install as service
-################################################################################
-
-echo "Installing as service..."
-
-sudo cp -v "scripts/jofo-$SYSTEM_NAME.service" "/etc/systemd/system/"
-
-sudo systemctl enable "jofo-$SYSTEM_NAME.service"
-
-echo "DONE"
 
 echo
 echo "================================================================================"
