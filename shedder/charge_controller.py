@@ -320,13 +320,15 @@ class ChargeController():
     # Adjust vehicle power up or down
     # Returns active current
     #
-    def adjust(self, v, up: bool=False):
+    def adjust(self, v, up: bool=False, amps: int = 1):
         if v is None:
             return 0
 
         down = not up
+        amps = max(1, amps)
 
         current_current = 0
+        adjust_current = 0
 
         try:
             # if not v.available():
@@ -351,7 +353,8 @@ class ChargeController():
 
             if up and current_current < max_current:
                 # NOTE: Wake
-                v.command('CHARGING_AMPS', charging_amps=current_current + 1)
+                adjust_current = min(current_current + amps, max_current)
+                v.command("CHARGING_AMPS", charging_amps=adjust_current)
 
                 # Reset floor current timer
                 self.floor_time[v.get('vin')] = time.time()
@@ -359,7 +362,8 @@ class ChargeController():
             elif down:
                 if current_current > self.MIN_CURRENT:
                     # NOTE: Wake
-                    v.command("CHARGING_AMPS", charging_amps=current_current - 1)
+                    adjust_current = max(current_current - amps, self.MIN_CURRENT)
+                    v.command("CHARGING_AMPS", charging_amps=adjust_current)
 
                     # Reset floor current timer
                     self.floor_time[v.get('vin')] = time.time()
@@ -375,11 +379,11 @@ class ChargeController():
             return 0
 
         name = v.get('display_name') or v.get('vehicle_state').get('vehicle_name')
-        if current_current > 0:
+        if current_current > 0 and adjust_current > 0:
             if up:
-                self.logger.debug(f'Adjusted {name} UP to {current_current+1}A')
+                self.logger.debug(f"Adjusted {name} UP {amps} to {adjust_current}A")
             else:
-                self.logger.debug(f'Adjusted {name} DOWN to {current_current-1}A')
+                self.logger.debug(f"Adjusted {name} DOWN {amps} to {adjust_current}A")
 
         return current_current
 

@@ -374,16 +374,16 @@ if __name__ == '__main__':
 
                                 # Finn kjøretøy med lavest effekt (som skal justeres OPP)
                                 #  cc.adjust(cc.get_min_vehicle(), up=True)
-                                cc.adjust(cc.get_random_vehicle(sun_mode=True), up=True)
+                                amps = (power_export_instant - dynamic_settings.get('control').get('sun_export_charge_level')) / 400
+                                cc.adjust(cc.get_random_vehicle(sun_mode=True), up=True, amps=int(amps))
                                 last_adjust_sun = time.time()
                             else:
                                 logger.debug(f'SUN MODE Adjusting DOWN (export {power_export_instant:.1f}W, import {power_import_instant:.1f}W)')
 
                                 # Finn kjøretøy med høyest effekt (som skal justeres NED)
                                 # cc.adjust(cc.get_max_vehicle(), up=False)
-                                cc.adjust(
-                                    cc.get_random_vehicle(sun_mode=True), up=False
-                                )
+                                amps = (power_import_instant - dynamic_settings.get("control").get("sun_export_charge_level")) / 400
+                                cc.adjust(cc.get_random_vehicle(sun_mode=True), up=False, amps=int(amps))
                                 last_adjust_sun = time.time()
                         else:
                             logger.debug(f'SUN MODE Adjusting DOWN to cut-off (export {power_export_instant:.1f}W, import {power_import_instant:.1f}W)')
