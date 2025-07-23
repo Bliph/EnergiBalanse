@@ -389,9 +389,8 @@ if __name__ == '__main__':
                             logger.debug(f'SUN MODE Adjusting DOWN to cut-off (export {power_export_instant:.1f}W, import {power_import_instant:.1f}W)')
 
                             #                            current_current = cc.adjust(cc.get_max_vehicle(), up=False)
-                            current_current = cc.adjust(
-                                cc.get_random_vehicle(sun_mode=True), up=False
-                            )
+                            amps = (power_import_instant - dynamic_settings.get("control").get("sun_export_charge_level")) / 400
+                            current_current = cc.adjust(cc.get_random_vehicle(sun_mode=True), up=False, amps=int(amps))
                             last_adjust_sun = time.time()
 
                             # # Stopp lading hvis produksjon  går under 0
