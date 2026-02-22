@@ -18,13 +18,14 @@ except ModuleNotFoundError:
 
 from ocpp.routing import on
 from ocpp.v16 import ChargePoint
-from ocpp.v16 import call, call_result
+from ocpp.v16 import call, call_result, datatypes, enums
 from ocpp.v16.enums import (
     Action,
     RegistrationStatus,
     ChargePointErrorCode,
     ChargePointStatus,
     DiagnosticsStatus,
+    AuthorizationStatus,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -74,6 +75,62 @@ class ChargePointInstance(ChargePoint):
         **kwargs,
     ):
         return call_result.DiagnosticsStatusNotification()
+
+    @on(Action.start_transaction)
+    def on_start_transaction(
+        self,
+        connector_id: int,
+        id_tag: str,
+        meter_start: int,
+        timestamp: str,
+        **kwargs,
+    ):
+        """Accept all id_tags and return a transaction_id."""
+        logging.info(
+            f"StartTransaction: connector={connector_id}, id_tag={id_tag}, meter_start={meter_start}"
+        )
+        return call_result.StartTransaction(
+            id_tag_info={"status": AuthorizationStatus.accepted},
+            transaction_id=1,  # Simple static transaction ID for testing
+        )
+
+    @on(Action.meter_values)
+    def on_meter_values(
+        self,
+        connector_id: int,
+        meter_value: list,
+        **kwargs,
+    ):
+        """Handle MeterValues from the charge point."""
+        for mv in meter_value:
+            timestamp = mv.get("timestamp", "unknown")
+            sampled_values = mv.get("sampled_value", [])
+            for sv in sampled_values:
+                value = sv.get("value")
+                measurand = sv.get("measurand", "Energy.Active.Import.Register")
+                unit = sv.get("unit", "Wh")
+                logging.info(
+                    f"MeterValue: connector={connector_id}, {measurand}={value} {unit} @ {timestamp}"
+                )
+        return call_result.MeterValues()
+
+    @on(Action.stop_transaction)
+    def on_stop_transaction(
+        self,
+        meter_stop: int,
+        timestamp: str,
+        transaction_id: int,
+        **kwargs,
+    ):
+        """Handle StopTransaction from the charge point."""
+        reason = kwargs.get("reason", "Local")
+        id_tag = kwargs.get("id_tag", "unknown")
+        logging.info(
+            f"StopTransaction: transaction_id={transaction_id}, meter_stop={meter_stop}, reason={reason}, id_tag={id_tag}"
+        )
+        return call_result.StopTransaction(
+            id_tag_info={"status": AuthorizationStatus.accepted},
+        )
 
     #####################################################
     # DOWNLINK
@@ -191,15 +248,45 @@ if __name__ == "__main__":
 """
 REPL debugging:
 Run: python -m asyncio
->>> from simple_server import *
->>> server = await start_server()
->>> cp()  # Get the current charge point
->>> await cp().remote_start_transaction(id_tag="E6F00CCF")
->>> await cp().call(call.UnlockConnector(connector_id=1))
->>> await cp().call(call.GetConfiguration(key=["ConnectorSwitch3to1PhaseSupported"]))
->>> await cp().call(call.ClearCache())
->>> await cp().call(call.RemoteStartTransaction(id_tag="FREE_CHARGE_ID"))
->>> await cp().call(call.Reset("Soft"))
+
+from simple_server import *
+server = await start_server()
+cp()  # Get the current charge point
+
+await cp().remote_start_transaction(id_tag="E6F00CCF")
+await cp().call(call.UnlockConnector(connector_id=1))
+await cp().call(call.GetConfiguration(key=["ConnectorSwitch3to1PhaseSupported"]))
+await cp().call(call.GetConfiguration(key=["AuthorizationKey"]))
+
+await cp().call(call.ChangeConfiguration(key="AuthorizeRemoteTxRequests", value="true"))
+await cp().call(call.GetConfiguration(key=["AuthorizeRemoteTxRequests"]))
+
+await cp().call(call.ClearCache())
+await cp().call(call.RemoteStartTransaction(id_tag="FREE_CHARGE_ID", connector_id=1))
+await cp().call(call.RemoteStartTransaction(id_tag="E6F00CCF", connector_id=1))
+await cp().call(call.RemoteStopTransaction(transaction_id=1))
+
+await cp().call(call.Reset("Soft"))
+await cp().call(call.GetLocalListVersion())
+await cp().call(call.GetLog(log=datatypes.LogParameters(remote_location="s"), log_type=enums.Log.diagnostics_log, request_id=1))
+
+await cp().call(call.ChangeConfiguration(key="AuthorizeRemoteTxRequests", value="true"))
+
+import json
+json.dumps((await cp().call(call.GetConfiguration())).configuration_key)
+
+
+await cp().call(call.TriggerMessage(requested_message="BootNotification"))
+await cp().call(call.TriggerMessage(requested_message="FirmwareStatusNotification"))
+await cp().call(call.TriggerMessage(requested_message="Heartbeat"))
+await cp().call(call.TriggerMessage(requested_message="MeterValues"))
+await cp().call(call.TriggerMessage(requested_message="StatusNotification"))
+
+
+
+
+
+from simple_server import *
+server = await start_server()
+
 """
-# >>> await connected_charge_points[0].get_diagnostics("HHH")
-#
