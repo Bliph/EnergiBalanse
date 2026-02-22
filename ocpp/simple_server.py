@@ -28,13 +28,13 @@ from ocpp.v16.enums import (
 )
 
 logging.basicConfig(level=logging.INFO)
-# Store connected charge points for interactive access
-connected_charge_points = list()
+# Store the latest connected charge point for interactive/debug access
+_current_charge_point: "ChargePointInstance" = None
 
 
 def cp() -> "ChargePointInstance":
-    """Convenience function to get the last connected charge point for debugging."""
-    return connected_charge_points[-1] if connected_charge_points else None
+    """Convenience function to get the current charge point for debugging."""
+    return _current_charge_point
 
 
 class ChargePointInstance(ChargePoint):
@@ -141,19 +141,24 @@ async def on_connect(websocket):
         return await websocket.close()
 
     charge_point_id = websocket.request.path.strip("/")
-    cp = ChargePointInstance(charge_point_id, websocket)
+    charge_point = ChargePointInstance(charge_point_id, websocket)
 
     # Store reference for interactive access
-    connected_charge_points.append(cp)
-    logging.info(
-        f"Charge point '{charge_point_id}' connected. Total: {len(connected_charge_points)}"
-    )
+    global _current_charge_point
+    _current_charge_point = charge_point
+    logging.info(f"Charge point '{charge_point_id}' connected.")
 
     try:
-        await cp.start()
+        await charge_point.start()
+    except websockets.exceptions.ConnectionClosed:
+        logging.info(f"Charge point '{charge_point_id}' connection closed.")
+    except Exception as e:
+        logging.error(f"Charge point '{charge_point_id}' error: {e}")
     finally:
         # Clean up when disconnected
-        logging.info(f"Charge point '{charge_point_id}' disconnected.")
+        if _current_charge_point is charge_point:
+            _current_charge_point = None
+        logging.info(f"Charge point '{charge_point_id}' disconnected and cleaned up.")
 
 
 async def start_server():
@@ -167,30 +172,34 @@ async def start_server():
 
 async def main():
     server = await start_server()
-    await server.wait_closed()
+    try:
+        await asyncio.Future()  # Run forever until cancelled
+    except asyncio.CancelledError:
+        pass
+    finally:
+        server.close()
+        await server.wait_closed()
+        logging.info("Server shut down.")
 
 
 if __name__ == "__main__":
-    # asyncio.run() is used when running this example with Python >= 3.7v
-    asyncio.run(main())
-
-    pass
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logging.info("Server stopped by user (Ctrl+C).")
 
 """
-from simple_server import *
-server = await start_server()
-connected_charge_points
-connected_charge_points[0]
-connected_charge_points[-1]
-await cp().remote_start_transaction("E6F00CCF", connector_id=1)
+REPL debugging:
+Run: python -m asyncio
+>>> from simple_server import *
+>>> server = await start_server()
+>>> cp()  # Get the current charge point
+>>> await cp().remote_start_transaction(id_tag="E6F00CCF")
+>>> await cp().call(call.UnlockConnector(connector_id=1))
+>>> await cp().call(call.GetConfiguration(key=["ConnectorSwitch3to1PhaseSupported"]))
+>>> await cp().call(call.ClearCache())
+>>> await cp().call(call.RemoteStartTransaction(id_tag="FREE_CHARGE_ID"))
+>>> await cp().call(call.Reset("Soft"))
 """
-
-########################
-# Repl debugging:
-# Run python -m asyncio
-# >>> from simple_server import *
-# >>> server = await start_server()
-# >>> connected_charge_points
-# >>> connected_charge_points[0]
 # >>> await connected_charge_points[0].get_diagnostics("HHH")
 #
