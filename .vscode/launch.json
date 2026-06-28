@@ -19,8 +19,10 @@
             "program": "${workspaceFolder}/shedder/shedder.py",
             "console": "integratedTerminal",
             "args": [
-                "--cfg_dir", "${workspaceFolder}/conf"
+                "--cfg_dir",
+                "${workspaceFolder}/conf"
             ],
+            "envFile": "${workspaceFolder}/.env",
             "justMyCode": false
         },
         {
@@ -40,8 +42,10 @@
             "program": "${workspaceFolder}/ocpp/main.py",
             "cwd": "${workspaceFolder}/ocpp",
             "args": [
-                "--mqtt-host", "forsvoll.casa",
-                "--mqtt-port", "6883"
+                "--mqtt-host",
+                "forsvoll.casa",
+                "--mqtt-port",
+                "6883"
             ],
             "env": {
                 "MQTT_USERNAME": "johan",

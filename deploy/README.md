@@ -37,12 +37,12 @@ cat ~/.ssh/id_ed25519.pub      # add this to GitHub repo → Settings → Deploy
 ssh -T git@github.com          # verify (a greeting = success)
 ```
 
-**4. Clone the repo:**
+**4. Clone the repo** (this guide uses `~/git/EnergiBalanse`):
 
 ```bash
-sudo mkdir -p /opt/energibalanse && sudo chown "$USER:$USER" /opt/energibalanse
-git clone git@github.com:Bliph/EnergiBalanse.git /opt/energibalanse
-cd /opt/energibalanse
+mkdir -p ~/git
+git clone git@github.com:Bliph/EnergiBalanse.git ~/git/EnergiBalanse
+cd ~/git/EnergiBalanse
 ```
 
 **5. Create the secrets file** from the template and fill in every value:
@@ -89,7 +89,7 @@ rebuild:
 ./deploy/deploy.ps1 -Server you@your-server -Branch main
 ```
 
-Options: `-Path /opt/energibalanse` (default), `-Branch main` (default),
+Options: `-Path /home/johan/git/EnergiBalanse` (default), `-Branch main` (default),
 `-Port 22` (default). Example with a non-standard SSH port:
 
 ```powershell
@@ -101,7 +101,7 @@ just `-Server energibalanse`.
 
 ---
 
-## C. Operate (on the server, from `/opt/energibalanse`)
+## C. Operate (on the server, from `~/git/EnergiBalanse`)
 
 ```bash
 docker compose -f deploy/docker-compose.yml logs -f       # follow logs

@@ -7,7 +7,7 @@
 #
 # Usage:
 #   ./deploy/deploy.ps1 -Server you@your-server
-#   ./deploy/deploy.ps1 -Server you@your-server -Path /opt/energibalanse -Branch main
+#   ./deploy/deploy.ps1 -Server you@your-server -Path /home/johan/git/EnergiBalanse -Branch main
 #   ./deploy/deploy.ps1 -Server you@your-server -Port 22375   # non-standard SSH port
 #
 # One-time prerequisites (see CONTAINERIZE-AND-DEPLOY-HANDOFF.md §3):
@@ -19,7 +19,7 @@
 
 param(
     [Parameter(Mandatory = $true)] [string]$Server,
-    [string]$Path = "/opt/energibalanse",
+    [string]$Path = "/home/johan/git/EnergiBalanse",
     [string]$Branch = "main",
     [int]$Port = 22
 )
