@@ -126,6 +126,13 @@ class EnergyCalculator():
         power_avg_1m = self.power_buffer.avg(ts_from=ts-60, ts_to=ts)
         power_avg_5m = self.power_buffer.avg(ts_from=ts-300, ts_to=ts)
 
+        # Buffers may be empty on first start (no backup file yet) - fall back to ts
+        last_power_tuple = self.power_buffer.get_last_tuple()
+        power_ts = last_power_tuple[0] if last_power_tuple is not None else ts
+
+        last_energy_tuple = self.energy_buffer.get_last_tuple()
+        energy_ts = last_energy_tuple[0] if last_energy_tuple is not None else ts
+
         ret = {
             'ts_from': ts_from,
             'ts_to': ts_to,
@@ -135,8 +142,8 @@ class EnergyCalculator():
             'duration_text': time.strftime("%H:%M:%S", time.gmtime(duration)),
             'ts': ts,
             'power': self.power_buffer.get_value(ts=ts, selection='pre'),
-            'power_ts': self.power_buffer.sorted_list[-1][0],
-            'power_ts_text': ts2ymd(self.power_buffer.sorted_list[-1][0]) + ' ' + ts2hms(self.power_buffer.sorted_list[-1][0]),
+            'power_ts': power_ts,
+            'power_ts_text': ts2ymd(power_ts) + ' ' + ts2hms(power_ts),
             'power_avg_1m': power_avg_1m,
             'power_avg_5m': power_avg_5m,
             'metering_offline': metering_offline,
@@ -148,8 +155,8 @@ class EnergyCalculator():
             'estimated_energy': energy + power_avg_1m*remaining_time/3600,
             'prev_hour_energy': 1000*self.energy_buffer.get_value(ts=int(time.time())) - \
                 1000*self.energy_buffer.get_value(ts=int(time.time()-3600), selection='pre'),
-            'prev_hour_energy_ts': self.energy_buffer.sorted_list[-1][0],
-            'prev_hour_energy_ts_text': ts2ymd(self.energy_buffer.sorted_list[-1][0]) + ' ' + ts2hms(self.energy_buffer.sorted_list[-1][0]),
+            'prev_hour_energy_ts': energy_ts,
+            'prev_hour_energy_ts_text': ts2ymd(energy_ts) + ' ' + ts2hms(energy_ts),
             'prev_hour_energy_int': self.power_buffer.integrate(ts_from=ts_from-3600, ts_to=ts_from)/3600
         }
 
