@@ -1,0 +1,36 @@
+# Keep the build context small and free of secrets / local cruft.
+.git/
+.venv/
+venv/
+env/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Large runtime state / logs / data sitting in the repo root — never bake these
+# into the image (they are recreated under STATE_DIR at runtime).
+*.log
+/cache.json
+/model_s_90d.json
+/energy*.csv
+/energy*.yaml
+/power_buffer*.yaml
+/energy_buffer*.yaml
+
+# Tesla OAuth token cache — secret/state. Must come from the state volume,
+# never the image. (conf/shedder.conf IS kept — it is the read-only config.)
+**/tesla_cache*.json
+
+# Secrets and local env.
+.env
+.env.*
+deploy/docker.env
+deploy/state/
+
+# Editor / CI / docs / unrelated artifacts the image doesn't need.
+.vscode/
+.claude/
+*.md
+ocpp/EKEPC/

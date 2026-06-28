@@ -4,6 +4,13 @@ model*.json
 *.yaml
 *.csv
 
+# Tesla OAuth token cache (secrets) — all variants
+tesla_cache*.json
+
+# Docker deploy: secrets env file + local state bind dir
+deploy/docker.env
+deploy/state/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -56,6 +63,7 @@ coverage.xml
 *.py,cover
 .hypothesis/
 .pytest_cache/
+tesla_cache.json
 
 # Translations
 *.mo

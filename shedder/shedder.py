@@ -33,6 +33,7 @@ dynamic_settings = {}
 calculator_export = None
 calculator_import = None
 cfg_dir = DEFAULT_CFG_DIR
+state_dir = DEFAULT_CFG_DIR
 MIN_CURRENT = 5
 
 ###########################################################
@@ -167,7 +168,33 @@ def get_settings(cfg_dir):
         sys.stderr.write('Error wile reading configuration {}\n\n{}\n'.format(filename, e))
         sys.exit(1)
 
+    apply_env_overrides(settings)
+
     return settings
+
+###########################################################
+# Override file settings from the environment.
+#
+# Lets secrets / connection details (and log level) be supplied via environment
+# variables instead of being committed to shedder.conf — used by the container
+# deployment (see deploy/docker.env). An unset or empty variable leaves the
+# value from the config file untouched, so local file-based runs are unaffected.
+#
+def apply_env_overrides(settings):
+    overrides = (
+        ('mqtt_server', 'host', 'MQTT_HOST'),
+        ('mqtt_server', 'port', 'MQTT_PORT'),
+        ('mqtt_server', 'username', 'MQTT_USERNAME'),
+        ('mqtt_server', 'password', 'MQTT_PASSWORD'),
+        ('tesla_client', 'user_id', 'TESLA_EMAIL'),
+        ('logging', 'log_level', 'LOG_LEVEL'),
+    )
+    for section, key, env_name in overrides:
+        value = os.environ.get(env_name)
+        if value:
+            if not settings.has_section(section):
+                settings.add_section(section)
+            settings.set(section, key, value)
 
 ###########################################################
 # Find vehicle with highest/lowest charge power
@@ -201,7 +228,7 @@ def input(message):
     if message.get('topic').startswith(full_control_topic):
         control = message.get('payload', {})
         dynamic_settings['control'].update(control)
-        store_dynamic_settings(cfg_dir, dynamic_settings)
+        store_dynamic_settings(state_dir, dynamic_settings)
 
     else:
         ts = message.get('payload', {}).get(settings.get('mqtt_client', 'timestamp_element'))
@@ -227,20 +254,30 @@ if __name__ == '__main__':
     args = get_arguments()
     cfg_dir = args.cfg_dir
     settings = get_settings(cfg_dir=args.cfg_dir)
-    dynamic_settings = get_dynamic_settings(cfg_dir=args.cfg_dir)
+
+    # Where runtime state lives. In containers, set STATE_DIR (e.g. /state) so the
+    # Tesla token cache, the dynamic control file, the power/energy buffers and the
+    # log files are written to a persistent volume rather than the read-only/
+    # ephemeral code+config tree. When STATE_DIR is unset, behaviour is unchanged:
+    # the control file + token cache stay in cfg_dir and logs/buffers go to the
+    # configured [logging] log_dir.
+    state_dir = os.environ.get('STATE_DIR') or cfg_dir
+    log_dir = os.environ.get('STATE_DIR') or settings.get('logging', 'log_dir')
+
+    dynamic_settings = get_dynamic_settings(cfg_dir=state_dir)
 
     create_logger(
         name='timebuffer',
         level=settings.get('logging', 'log_level'),
-        log_dir=settings.get('logging', 'log_dir'))
+        log_dir=log_dir)
 
     logger = create_logger(
         name=APP_NAME,
         level=settings.get('logging', 'log_level'),
-        log_dir=settings.get('logging', 'log_dir'))
+        log_dir=log_dir)
 
-    calculator_import = EnergyCalculator(log_dir=settings.get('logging', 'log_dir'), postfix='_import')
-    calculator_export = EnergyCalculator(log_dir=settings.get('logging', 'log_dir'), postfix='_export')
+    calculator_import = EnergyCalculator(log_dir=log_dir, postfix='_import')
+    calculator_export = EnergyCalculator(log_dir=log_dir, postfix='_export')
 
     mqtt_client = MQTTClient(
         client_id=APP_NAME,
@@ -250,7 +287,7 @@ if __name__ == '__main__':
         password=settings.get('mqtt_server', 'password'),
         root_topic=settings.get('mqtt_client', 'root_topic'),
         keepalive=60,
-        log_dir=settings.get('logging', 'log_dir'))
+        log_dir=log_dir)
 
     full_control_topic = f"{settings.get('mqtt_client', 'root_topic')}/{APP_NAME}/{settings.get('mqtt_client', 'control_topic')}"
     topics = [
@@ -262,7 +299,7 @@ if __name__ == '__main__':
 
     tesla = teslapy.Tesla(
         email=settings.get('tesla_client', 'user_id'),
-        cache_file=str(Path(cfg_dir) / 'tesla_cache.json')
+        cache_file=str(Path(state_dir) / 'tesla_cache.json')
     )
 
     if not tesla.authorized:
@@ -283,7 +320,7 @@ if __name__ == '__main__':
         settings=dynamic_settings,
         home_location={'lat': settings.getfloat('location', 'lat'), 'lon': settings.getfloat('location', 'lon')},
         update_period=settings.getint('tesla_client', 'update_period'),
-        log_dir=settings.get('logging', 'log_dir'),
+        log_dir=log_dir,
         log_level='DEBUG'
     )
 

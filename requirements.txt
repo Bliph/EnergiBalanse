@@ -1,6 +1,16 @@
-TeslaPy==2.9.2
-# TeslaPy==git+git://github.com/tdorssers/TeslaPy.git
-PyYAML==5.3.1
+# TeslaPy: the Bliph fork (branch http2-transport), pinned to a commit.
+# Installed from GitHub's source tarball so the python:3.12-slim image needs no
+# `git` binary. The fork's install_requires pulls its own deps automatically
+# (httpx[http2], requests, requests_oauthlib, websocket-client).
+# To deploy fork changes: push to github.com/Bliph/TeslaPy, then replace the SHA
+# below (changing it also busts Docker's pip layer cache, so the rebuild picks
+# it up). Upstream for reference: git+https://github.com/tdorssers/TeslaPy.git
+TeslaPy @ https://github.com/Bliph/TeslaPy/archive/3ec34d1d4a186d9c5d95aa6e9f0090e7da7c5743.tar.gz
+# TeslaPy==2.9.2   # (PyPI release — replaced by the fork above)
+# PyYAML 5.3.1 ships no Linux wheel and fails to build from sdist on Python 3.12
+# (Cython 3 / CPython 3.12 C-API). 6.0.2 has cp312 manylinux wheels and is a
+# drop-in here — the code only uses yaml.safe_load / yaml.dump.
+PyYAML==6.0.2
 paho-mqtt==1.5.1
 ocpp==2.1.0
 websockets>=13.0,<14

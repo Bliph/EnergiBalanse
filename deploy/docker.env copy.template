@@ -1,0 +1,31 @@
+# EnergiBalanse — Docker deployment environment (shedder service)
+# ================================================================
+# Copy this file to "docker.env" (same directory) and fill in every value:
+#   cp deploy/docker.env.template deploy/docker.env
+#
+# docker.env holds secrets and is gitignored — never commit it.
+#
+# Format rules (docker compose env_file): KEY=value, one per line. Do NOT wrap
+# values in quotes and do NOT put inline comments after a value.
+#
+# These variables override the corresponding entries in conf/shedder.conf at
+# runtime (see apply_env_overrides in shedder/shedder.py).
+
+# --- MQTT broker (external) --------------------------------------------------
+MQTT_HOST=broker.example.com
+MQTT_PORT=1883
+MQTT_USERNAME=CHANGE_ME
+MQTT_PASSWORD=CHANGE_ME
+
+# --- Tesla account -----------------------------------------------------------
+# The email of the Tesla account. The OAuth *tokens* are NOT set here — they
+# live in the token cache file (tesla_cache.json) on the state volume; seed it
+# once on first run (see deploy/docker-compose.yml).
+TESLA_EMAIL=CHANGE_ME@example.com
+
+# --- Runtime -----------------------------------------------------------------
+# Where the app reads/writes persistent state. Matches the volume mount in
+# docker-compose.yml; leave as /state unless you change the mount.
+STATE_DIR=/state
+# Optional: DEBUG | INFO | WARNING | ERROR (defaults to conf/shedder.conf value)
+# LOG_LEVEL=INFO
