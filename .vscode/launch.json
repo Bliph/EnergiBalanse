@@ -6,21 +6,52 @@
     "configurations": [
         {
             "name": "Python: Current File",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "justMyCode": true
+            "justMyCode": false
         },
         {
             "name": "EnergiBalanse",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/shedder/shedder.py",
             "console": "integratedTerminal",
             "args": [
-                "--cfg_dir", "${workspaceFolder}/conf"
+                "--cfg_dir",
+                "${workspaceFolder}/conf"
             ],
+            "envFile": "${workspaceFolder}/.env",
+            "justMyCode": false
+        },
+        {
+            "name": "OCPP Server Debug",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "asyncio",
+            "cwd": "${workspaceFolder}/ocpp",
+            "args": [],
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
+            "name": "OCPP-MQTT Bridge",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/ocpp/main.py",
+            "cwd": "${workspaceFolder}/ocpp",
+            "args": [
+                "--mqtt-host",
+                "forsvoll.casa",
+                "--mqtt-port",
+                "6883"
+            ],
+            "env": {
+                "MQTT_USERNAME": "johan",
+                "MQTT_PASSWORD": "036758ff69785e97"
+            },
+            "console": "integratedTerminal",
             "justMyCode": false
         }
     ]

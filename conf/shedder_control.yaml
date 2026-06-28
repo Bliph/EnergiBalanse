@@ -3,5 +3,14 @@ control:
   included_cars:
   - 5YJ3E7EB8KF336792
   - 5YJSA7E21GF130924
-  max_energy: 8000
-  max_floor_time: 301
+#  - 5YJ3E7EB1MF824081
+  sleep_time:
+    5YJSA7E21GF130924: 900
+  max_energy: 9600
+  max_floor_time: 600
+  start_stop_guard_time: 600
+  sun_charge_enable_minute_magic: 30
+  sun_charge_start_hour: 7
+  sun_charge_stop_hour: 21
+  sun_export_charge_level: 100
+  sun_export_charge_trigger: 1200

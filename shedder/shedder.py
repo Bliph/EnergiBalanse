@@ -19,11 +19,11 @@ from log_handler import create_logger
 # https://github.com/tdorssers/TeslaPy
 # https://github.com/nside/pytesla (old)
 
-#DEAD_BAND = 300     # Current dead band when increasing charging current
-#ADJUST_TIME = 30    # Min time in sec between adjustments
+# DEAD_BAND = 300     # Current dead band when increasing charging current
+# ADJUST_TIME = 30    # Min time in sec between adjustments
 
-#PERIOD_DURATION = 3600
-#SETTINGS_TOPIC_PREFIX = 'geiterasen/shedd/settings'
+# PERIOD_DURATION = 3600
+# SETTINGS_TOPIC_PREFIX = 'geiterasen/shedd/settings'
 
 __version__ = '0.0.1c'
 APP_NAME = os.path.basename(__file__).split('.')[0]
@@ -33,6 +33,7 @@ dynamic_settings = {}
 calculator_export = None
 calculator_import = None
 cfg_dir = DEFAULT_CFG_DIR
+state_dir = DEFAULT_CFG_DIR
 MIN_CURRENT = 5
 
 ###########################################################
@@ -59,13 +60,25 @@ def merge_dicts(dest, source):
 #
 def get_dynamic_settings(cfg_dir):
     MAX_PERIOD_ENERGY = 8000
+    SUN_CHARGE_START_HOUR = 9
+    SUN_CHARGE_STOP_HOUR = 21
+    START_STOP_GUARD_TIME = 600             # 10 minutes
+    SUN_CHARGE_ENABLE_MINUTE_MAGIC = 30
+    SUN_EXPORT_CHARGE_LEVEL = 500
+    SUN_EXPORT_CHARGE_TRIGGER = 1500
 
     defaults = {
         'control': {
             'max_energy': MAX_PERIOD_ENERGY,
             'enabled': True,
             'included_cars': ['5YJSA7E21GF130924', '5YJ3E7EB8KF336792'],
-            'max_floor_time': 300
+            'max_floor_time': 300,
+            'sun_charge_start_hour': SUN_CHARGE_START_HOUR,
+            'sun_charge_stop_hour': SUN_CHARGE_STOP_HOUR,
+            'start_stop_guard_time': START_STOP_GUARD_TIME,
+            'sun_charge_enable_minute_magic': SUN_CHARGE_ENABLE_MINUTE_MAGIC,
+            'sun_export_charge_level': SUN_EXPORT_CHARGE_LEVEL,
+            'sun_export_charge_trigger': SUN_EXPORT_CHARGE_TRIGGER,
         }
     }
 
@@ -155,7 +168,33 @@ def get_settings(cfg_dir):
         sys.stderr.write('Error wile reading configuration {}\n\n{}\n'.format(filename, e))
         sys.exit(1)
 
+    apply_env_overrides(settings)
+
     return settings
+
+###########################################################
+# Override file settings from the environment.
+#
+# Lets secrets / connection details (and log level) be supplied via environment
+# variables instead of being committed to shedder.conf — used by the container
+# deployment (see deploy/docker.env). An unset or empty variable leaves the
+# value from the config file untouched, so local file-based runs are unaffected.
+#
+def apply_env_overrides(settings):
+    overrides = (
+        ('mqtt_server', 'host', 'MQTT_HOST'),
+        ('mqtt_server', 'port', 'MQTT_PORT'),
+        ('mqtt_server', 'username', 'MQTT_USERNAME'),
+        ('mqtt_server', 'password', 'MQTT_PASSWORD'),
+        ('tesla_client', 'user_id', 'TESLA_EMAIL'),
+        ('logging', 'log_level', 'LOG_LEVEL'),
+    )
+    for section, key, env_name in overrides:
+        value = os.environ.get(env_name)
+        if value:
+            if not settings.has_section(section):
+                settings.add_section(section)
+            settings.set(section, key, value)
 
 ###########################################################
 # Find vehicle with highest/lowest charge power
@@ -189,7 +228,7 @@ def input(message):
     if message.get('topic').startswith(full_control_topic):
         control = message.get('payload', {})
         dynamic_settings['control'].update(control)
-        store_dynamic_settings(cfg_dir, dynamic_settings)
+        store_dynamic_settings(state_dir, dynamic_settings)
 
     else:
         ts = message.get('payload', {}).get(settings.get('mqtt_client', 'timestamp_element'))
@@ -215,20 +254,30 @@ if __name__ == '__main__':
     args = get_arguments()
     cfg_dir = args.cfg_dir
     settings = get_settings(cfg_dir=args.cfg_dir)
-    dynamic_settings = get_dynamic_settings(cfg_dir=args.cfg_dir)
+
+    # Where runtime state lives. In containers, set STATE_DIR (e.g. /state) so the
+    # Tesla token cache, the dynamic control file, the power/energy buffers and the
+    # log files are written to a persistent volume rather than the read-only/
+    # ephemeral code+config tree. When STATE_DIR is unset, behaviour is unchanged:
+    # the control file + token cache stay in cfg_dir and logs/buffers go to the
+    # configured [logging] log_dir.
+    state_dir = os.environ.get('STATE_DIR') or cfg_dir
+    log_dir = os.environ.get('STATE_DIR') or settings.get('logging', 'log_dir')
+
+    dynamic_settings = get_dynamic_settings(cfg_dir=state_dir)
 
     create_logger(
         name='timebuffer',
         level=settings.get('logging', 'log_level'),
-        log_dir=settings.get('logging', 'log_dir'))
+        log_dir=log_dir)
 
     logger = create_logger(
         name=APP_NAME,
         level=settings.get('logging', 'log_level'),
-        log_dir=settings.get('logging', 'log_dir'))
+        log_dir=log_dir)
 
-    calculator_import = EnergyCalculator(log_dir=settings.get('logging', 'log_dir'), postfix='_import')
-    calculator_export = EnergyCalculator(log_dir=settings.get('logging', 'log_dir'), postfix='_export')
+    calculator_import = EnergyCalculator(log_dir=log_dir, postfix='_import')
+    calculator_export = EnergyCalculator(log_dir=log_dir, postfix='_export')
 
     mqtt_client = MQTTClient(
         client_id=APP_NAME,
@@ -238,7 +287,7 @@ if __name__ == '__main__':
         password=settings.get('mqtt_server', 'password'),
         root_topic=settings.get('mqtt_client', 'root_topic'),
         keepalive=60,
-        log_dir=settings.get('logging', 'log_dir'))
+        log_dir=log_dir)
 
     full_control_topic = f"{settings.get('mqtt_client', 'root_topic')}/{APP_NAME}/{settings.get('mqtt_client', 'control_topic')}"
     topics = [
@@ -250,7 +299,7 @@ if __name__ == '__main__':
 
     tesla = teslapy.Tesla(
         email=settings.get('tesla_client', 'user_id'),
-        cache_file=str(Path(cfg_dir) / 'tesla_cache.json')
+        cache_file=str(Path(state_dir) / 'tesla_cache.json')
     )
 
     if not tesla.authorized:
@@ -260,8 +309,8 @@ if __name__ == '__main__':
     # WORKAROUND: Ref https://github.com/tdorssers/TeslaPy/pull/158
     # https://github.com/tdorssers/TeslaPy/issues/156
     # https://github.com/teslamate-org/teslamate/issues/3629
-#    vehicles = tesla.vehicle_list()
-#    vehicles = [teslapy.Vehicle(vehicle=v, tesla=tesla) for v in tesla.api('PRODUCT_LIST')['response']]
+    #    vehicles = tesla.vehicle_list()
+    #    vehicles = [teslapy.Vehicle(vehicle=v, tesla=tesla) for v in tesla.api('PRODUCT_LIST')['response']]
     vehicles = []
     for v in tesla.api('PRODUCT_LIST')['response']:
         vehicles.append(teslapy.Vehicle(vehicle=v, tesla=tesla))
@@ -271,26 +320,28 @@ if __name__ == '__main__':
         settings=dynamic_settings,
         home_location={'lat': settings.getfloat('location', 'lat'), 'lon': settings.getfloat('location', 'lon')},
         update_period=settings.getint('tesla_client', 'update_period'),
-        log_dir=settings.get('logging', 'log_dir'),
+        log_dir=log_dir,
         log_level='DEBUG'
     )
 
-##############################################################################
-##############################################################################
-##############################################################################
-##############################################################################
-##############################################################################
-#    for i in range(0, len(vehicles)):
-#        if vehicles[i].get('vin').upper() == '5YJSA7E21GF130924':
-#            del vehicles[i]
-#            break
-##############################################################################
-##############################################################################
-##############################################################################
-##############################################################################
-##############################################################################
+    ##############################################################################
+    ##############################################################################
+    ##############################################################################
+    ##############################################################################
+    ##############################################################################
+    #    for i in range(0, len(vehicles)):
+    #        if vehicles[i].get('vin').upper() == '5YJSA7E21GF130924':
+    #            del vehicles[i]
+    #            break
+    ##############################################################################
+    ##############################################################################
+    ##############################################################################
+    ##############################################################################
+    ##############################################################################
     try:
         last_adjust = time.time()
+        last_adjust_sun = time.time()
+
         while True:
             included_cars = dynamic_settings.get('control').get('included_cars')
             period_status_import = calculator_import.period_status(
@@ -327,6 +378,8 @@ if __name__ == '__main__':
                 # Beregn og finn gjenværende effekt
                 remaining_max_power = period_status_import.get('remaining_max_power')
                 power = period_status_import.get('power_avg_1m')
+                power_import_instant = period_status_import.get('power')
+                power_export_instant = period_status_export.get('power')
 
                 # Dersom faktisk effekt > gjenværende tillatt max, gjør noe!
                 if period_status_import.get('metering_offline'):
@@ -334,29 +387,77 @@ if __name__ == '__main__':
                     logger.debug('Adjusting DOWN when energy/power metering is offline')
 
                     # Finn kjøretøy med høyest effekt (som skal justeres NED)
-                    cc.adjust(cc.get_max_vehicle(), up=False)
+                    # cc.adjust(cc.get_max_vehicle(), up=False)
                     cc.adjust(cc.get_random_vehicle(), up=False)
                     last_adjust = time.time()
+                    last_adjust_sun = time.time()
                 else:
-                    if power > remaining_max_power + settings.getint('control', 'energy_deadband_down') and \
-                        time.time()-last_adjust > settings.getint('times', 'adjust_period'):
 
-                        logger.debug('Adjusting DOWN ({:.1f}W > {:.1f}W + db)'.format(power, remaining_max_power))
+                    logger.debug(
+                        f"At location/sun mode/sun enabled: {cc.count_at_location()}/{cc.count_sun_mode_at_location()}/{cc.sun_charge_enabled()}"
+                    )
 
-                        # Finn kjøretøy med høyest effekt (som skal justeres NED)
-                        cc.adjust(cc.get_max_vehicle(), up=False)
-                        cc.adjust(cc.get_random_vehicle(), up=False)
-                        last_adjust = time.time()
+                    if cc.sun_charge_enabled():
 
-                    elif power < remaining_max_power - settings.getint('control', 'energy_deadband_up') \
-                        and time.time()-last_adjust > settings.getint('times', 'adjust_period'):
+                        # Eksporterer strøm (use instant power)
+                        if power_import_instant <= 0:
+                            if power_export_instant >= dynamic_settings.get('control').get('sun_export_charge_level'):
 
-                        logger.debug('Adjusting UP ({:.1f}W < {:.1f}W + db)'.format(power, remaining_max_power))
+                                # Start lading hvis produksjon overstiger grense
+                                if power_export_instant >= dynamic_settings.get('control').get('sun_export_charge_trigger'):
+                                    cc.sun_charge_start_minimum()
 
-                        # Finn kjøretøy med lavest effekt (som skal justeres OPP)
-                        cc.adjust(cc.get_min_vehicle(), up=True)
-                        cc.adjust(cc.get_random_vehicle(), up=True)
-                        last_adjust = time.time()
+                                logger.debug(f'SUN MODE Adjusting UP (export {power_export_instant:.1f}W, import {power_import_instant:.1f}W)')
+
+                                # Finn kjøretøy med lavest effekt (som skal justeres OPP)
+                                #  cc.adjust(cc.get_min_vehicle(), up=True)
+                                amps = (power_export_instant - dynamic_settings.get('control').get('sun_export_charge_level')) / 400
+                                cc.adjust(cc.get_random_vehicle(sun_mode=True), up=True, amps=int(amps))
+                                last_adjust_sun = time.time()
+                            else:
+                                logger.debug(f'SUN MODE Adjusting DOWN (export {power_export_instant:.1f}W, import {power_import_instant:.1f}W)')
+
+                                # Finn kjøretøy med høyest effekt (som skal justeres NED)
+                                # cc.adjust(cc.get_max_vehicle(), up=False)
+                                amps = (power_import_instant - dynamic_settings.get("control").get("sun_export_charge_level")) / 400
+                                cc.adjust(cc.get_random_vehicle(sun_mode=True), up=False, amps=int(amps))
+                                last_adjust_sun = time.time()
+                        else:
+                            logger.debug(f'SUN MODE Adjusting DOWN to cut-off (export {power_export_instant:.1f}W, import {power_import_instant:.1f}W)')
+
+                            #                            current_current = cc.adjust(cc.get_max_vehicle(), up=False)
+                            amps = (power_import_instant - dynamic_settings.get("control").get("sun_export_charge_level")) / 400
+                            current_current = cc.adjust(cc.get_random_vehicle(sun_mode=True), up=False, amps=int(amps))
+                            last_adjust_sun = time.time()
+
+                            # # Stopp lading hvis produksjon  går under 0
+                            # if current_current <= cc.MIN_CURRENT:
+                            #     cc.sun_charge_stop()
+
+                    # Normal charge for all NOT in sun mode
+                    if not cc.sun_charge_enabled() or cc.count_at_location() > cc.count_sun_mode_at_location():
+
+                        # Over usage: Reduce
+                        if power > remaining_max_power + settings.getint('control', 'energy_deadband_down') and \
+                            time.time()-last_adjust > settings.getint('times', 'adjust_period'):
+
+                            logger.debug('Adjusting DOWN ({:.1f}W > {:.1f}W + db)'.format(power, remaining_max_power))
+
+                            # Finn kjøretøy med høyest effekt (som skal justeres NED)
+                            # cc.adjust(cc.get_max_vehicle(), up=False)
+                            cc.adjust(cc.get_random_vehicle(), up=False)
+                            last_adjust = time.time()
+
+                        # Under usage -> increase
+                        elif power < remaining_max_power - settings.getint('control', 'energy_deadband_up') \
+                            and time.time()-last_adjust > settings.getint('times', 'adjust_period'):
+
+                            logger.debug('Adjusting UP ({:.1f}W < {:.1f}W + db)'.format(power, remaining_max_power))
+
+                            # Finn kjøretøy med lavest effekt (som skal justeres OPP)
+                            # cc.adjust(cc.get_min_vehicle(), up=True)
+                            cc.adjust(cc.get_random_vehicle(), up=True)
+                            last_adjust = time.time()
 
             time.sleep(settings.getint('times', 'loop_sleep'))
     except KeyboardInterrupt:

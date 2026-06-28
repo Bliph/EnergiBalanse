@@ -1,0 +1,22 @@
+[Unit]
+Description=OCPP-MQTT Bridge Service
+After=network.target mosquitto.service
+Wants=mosquitto.service
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/opt/energibalanse/ocpp
+ExecStart=/opt/energibalanse/.venv/bin/python main.py
+Restart=on-failure
+RestartSec=10
+Environment=OCPP_HOST=0.0.0.0
+Environment=OCPP_PORT=8180
+Environment=MQTT_HOST=localhost
+Environment=MQTT_PORT=1883
+Environment=LOG_LEVEL=INFO
+# Environment=MQTT_USERNAME=user
+# Environment=MQTT_PASSWORD=pass
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,277 @@
+reboot
+
+ \ | /
+- RT -     Thread Operating System
+ / | \     3.1.5 build Jul  3 2025
+ 2006 - 2020 Copyright by rt-thread team
+msh >hardware init finished...
+SD NOT CHECKED....
+
+boot read firmware fail : Download not found ...
+
+BootLoader Ver: V1.2 ...
+Jump to application running ...
+
+ \ | /
+- RT -     Thread Operating System
+ / | \     3.1.5 build Oct 15 2025
+ 2006 - 2020 Copyright by rt-thread team
+msh >
+system clock frequency  : 240000000 Hz
+ahb bus clock frequency : 240000000 Hz
+apb1 bus clock frequency: 120000000 Hz
+apb2 bus clock frequency: 120000000 Hz
+adc clock frequency     : 060000000 Hz
+[I/DBG] 00-00 00:00:00 rn820x_Addr:0x11, KV:0.990609, KI:0.991736, EC:3000, GPQA=64800, PhsA:0, APOSA:0
+[I/DBG] 00-00 00:00:00 rn820x read_dev_id failed
+[I/DBG] 00-00 00:00:00 rn820x_Addr:0x22, KV:0.990609, KI:0.991736, EC:3000, GPQA=64800, PhsA:0, APOSA:0
+[I/DBG] 00-00 00:00:00 rn820x read_dev_id failed
+[W/DBG] 00-00 00:00:00 New CP Sampling
+[I/DBG] 00-00 00:00:00 hardware init finished...
+[I/DBG] 02-21 17:07:23 The unique ID of the chip: 005839985C91000007991417
+[I/DBG] 02-21 17:07:23 The only capacity of chip flash: 1024K, RAM: 224K
+[I/DBG] 02-21 17:07:23 version(4):AC_V2.3.28_20251015
+[I/DBG] 02-21 17:07:23 ID:2448800001
+[I/DBG] 02-21 17:07:23 sys ip:192.168.1.99
+[I/DBG] 02-21 17:07:23 sys mask:255.255.255.0
+[I/DBG] 02-21 17:07:23 sys gate:192.168.1.1
+[I/DBG] 02-21 17:07:23 sys dns:8.8.8.8
+[I/DBG] 02-21 17:07:23 mac address:50:88:4E:7F:43:18
+[I/DBG] 02-21 17:07:23 net mode:DHCP
+[I/DBG] 02-21 17:07:23 serverurl:ws://10.0.0.227:8180/
+[E/ChargeTask] 02-21 17:07:26 charger happen fault: [1010] RCD leakage protection
+[I/OtherTask] 02-21 17:07:26 CP1:12.9, PP1:2999(0), leakage1:0, charge1_state:Faulted, PE:206V, PEN:160mA
+[I/OtherTask] 02-21 17:07:26 Relay:[1,0], Lock:[0,0], Temp[73,35]
+[E/DBG] 02-21 17:07:27 LAN Reset
+[I/NetTask] 02-21 17:07:27 Auto Checking NetModule, reboot time = 6 s ...
+[E/ChargeTask] 02-21 17:07:30 charger happen fault: [1002] Phase L3 Undervoltage
+[E/ChargeTask] 02-21 17:07:30 charger happen fault: [1004] Phase L2 Undervoltage
+[E/ChargeTask] 02-21 17:07:30 charger happen fault: [1006] Phase L1 Undervoltage
+[I/OtherTask] 02-21 17:07:31 Gun 1: Energy:[0->0], Volt:[0,0,0] V, Curr:[0,0,0] A, Power:[0,0,0] W
+[I/DBG] 02-21 17:07:35 gprs Send(3B)-->+++
+[I/DBG] 02-21 17:07:35 gprs Send(3B)-->+++
+[I/DBG] 02-21 17:07:36 gprs Send(3B)-->+++
+[I/DBG] 02-21 17:07:37 gprs Send(1B)-->a
+[I/DBG] 02-21 17:07:39 gprs Send(1B)-->a
+[I/DBG] 02-21 17:07:39 gprs Send(1B)-->a
+
+[I/DBG] 02-21 17:07:55 gprs Send(10B)-->at+ver=?
+
+[I/DBG] 02-21 17:07:56 gprs Send(10B)-->at+ver=?
+
+[I/DBG] 02-21 17:07:56 gprs Recv(27B)-->at+ver=?
++CME ERROR: 58
+
+[I/DBG] 02-21 17:07:56 gprs Send(9B)-->AT+CGMM
+
+[I/DBG] 02-21 17:07:56 gprs Recv(24B)-->AT+CGMM
+EG800G
+
+OK
+
+[I/DBG] 02-21 17:07:56 esp32 Send(8B)-->AT+GMR
+
+[I/DBG] 02-21 17:07:56 esp32 Recv(154B)-->AT+GMR
+AT version:2.2.0
+SDK version:release_bl_iot_sdk_1.6.40-11-gf4c8dac01
+compile_time:Dec 12 2023 16:26:24
+Bin version:V4.18_P2.3.7-7c7f80d
+
+OK
+
+[W/NetTask] 02-21 17:07:56 NET 4G EC DEVICE...
+[I/DBG] 02-21 17:07:56 4G EC Reboot...
+[I/DBG] 02-21 17:08:00 gprs Send(4B)-->AT
+
+[I/DBG] 02-21 17:08:00 gprs Recv(9B)-->AT
+OK
+
+[I/DBG] 02-21 17:08:00 gprs Send(6B)-->ATE0
+
+[I/DBG] 02-21 17:08:00 gprs Recv(11B)-->ATE0
+OK
+
+[I/DBG] 02-21 17:08:00 EC(9B) Send->AT+CGMM
+
+[I/DBG] 02-21 17:08:01 EC(16B) Recv->
+EG800G
+
+OK
+
+[I/DBG] 02-21 17:08:01 EC(9B) Send->AT+CGMR
+
+[I/DBG] 02-21 17:08:02 EC(29B) Recv->
+EG800GEULDR01A14M04
+
+OK
+
+[I/DBG] 02-21 17:08:02 EC(10B) Send->AT+CPIN?
+
+[I/DBG] 02-21 17:08:03 EC(18B) Recv->
++CME ERROR: 10
+
+[I/DBG] 02-21 17:08:04 EC(10B) Send->AT+CPIN?
+
+[I/DBG] 02-21 17:08:05 EC(18B) Recv->
++CME ERROR: 10
+
+[I/DBG] 02-21 17:08:06 EC(10B) Send->AT+CPIN?
+
+[I/DBG] 02-21 17:08:07 EC(18B) Recv->
++CME ERROR: 10
+
+[I/DBG] 02-21 17:08:08 EC(10B) Send->AT+CPIN?
+
+[I/DBG] 02-21 17:08:09 EC(18B) Recv->
++CME ERROR: 10
+
+[I/DBG] 02-21 17:08:10 EC(10B) Send->AT+CPIN?
+
+[I/DBG] 02-21 17:08:11 EC(18B) Recv->
++CME ERROR: 10
+
+[I/DBG] 02-21 17:08:12 EC(10B) Send->AT+CPIN?
+
+[I/DBG] 02-21 17:08:13 EC(18B) Recv->
++CME ERROR: 10
+
+[I/DBG] 02-21 17:08:14 EC(10B) Send->AT+CPIN?
+
+[I/DBG] 02-21 17:08:15 EC(18B) Recv->
++CME ERROR: 10
+
+[I/DBG] 02-21 17:08:16 EC(10B) Send->AT+CPIN?
+
+[I/DBG] 02-21 17:08:17 EC(18B) Recv->
++CME ERROR: 10
+
+[I/DBG] 02-21 17:08:18 EC(10B) Send->AT+CPIN?
+
+[I/DBG] 02-21 17:08:19 EC(18B) Recv->
++CME ERROR: 10
+
+[I/DBG] 02-21 17:08:20 EC(10B) Send->AT+CPIN?
+
+[I/DBG] 02-21 17:08:21 EC(18B) Recv->
++CME ERROR: 10
+
+[W/NetTask] 02-21 17:08:21 4G Not SIM Card, Try Next Devie...
+[W/NetTask] 02-21 17:08:21 NET WIFI ESP32 DEVICE...
+[I/DBG] 02-21 17:08:21 wifi esp32 reboot...
+[E/ChargeTask] 02-21 17:08:22 charger happen fault: [1011] Meter Fault
+[I/DBG] 02-21 17:08:29 esp32 Send(4B)-->AT
+
+[I/DBG] 02-21 17:08:29 esp32 Recv(10B)-->AT
+
+OK
+
+[I/DBG] 02-21 17:08:29 esp32 Send(6B)-->ATE0
+
+[I/DBG] 02-21 17:08:29 esp32 Recv(12B)-->ATE0
+
+OK
+
+[I/DBG] 02-21 17:08:29 esp32 Send(13B)-->AT+CWMODE=1
+
+[I/DBG] 02-21 17:08:29 esp32 Recv(6B)-->
+OK
+
+[I/DBG] 02-21 17:08:29 esp32 Send(15B)-->AT+CWDHCP=1,1
+
+[I/DBG] 02-21 17:08:29 esp32 Recv(6B)-->
+OK
+
+[I/DBG] 02-21 17:08:29 esp32 Send(33B)-->AT+CWLAP="Internkontrollsystem"
+
+[I/DBG] 02-21 17:08:36 esp32 Send(33B)-->AT+CWLAP="Internkontrollsystem"
+
+[I/DBG] 02-21 17:08:41 esp32 Send(33B)-->AT+CWLAP="Internkontrollsystem"
+
+[I/DBG] 02-21 17:08:47 esp32 Send(33B)-->AT+CWLAP="Internkontrollsystem"
+
+[I/DBG] 02-21 17:08:53 esp32 Send(33B)-->AT+CWLAP="Internkontrollsystem"
+
+[I/DBG] 02-21 17:08:59 esp32 Send(33B)-->AT+CWLAP="Internkontrollsystem"
+
+[I/DBG] 02-21 17:09:05 esp32 Send(33B)-->AT+CWLAP="Internkontrollsystem"
+
+[I/DBG] 02-21 17:09:10 esp32 Send(33B)-->AT+CWLAP="Internkontrollsystem"
+
+[I/DBG] 02-21 17:09:17 esp32 Send(33B)-->AT+CWLAP="Internkontrollsystem"
+
+[I/DBG] 02-21 17:09:22 esp32 Send(33B)-->AT+CWLAP="Internkontrollsystem"
+
+[I/DBG] 02-21 17:09:28 esp32 Send(33B)-->AT+CWLAP="Internkontrollsystem"
+
+[I/DBG] 02-21 17:09:33 wifi esp32 reboot...
+[W/NetTask] 02-21 17:09:41 Net Device Failed, Try Next Devie...
+[W/NetTask] 02-21 17:09:41 NET 4G EC DEVICE...
+[I/DBG] 02-21 17:09:41 4G EC Reboot...
+[I/OtherTask] 02-21 17:09:41 CP1:12.9, PP1:2998(0), leakage1:0, charge1_state:Faulted, PE:205V, PEN:133mA
+[I/OtherTask] 02-21 17:09:41 Relay:[1,0], Lock:[1,0], Temp[73,35]
+
+[I/OCPP] 02-21 17:42:14 cmd: HeartbeatData
+[I/DBG] 02-21 17:42:14 SEND OK: 51==51
+[I/OCPP] 02-21 17:42:13 ServerTime:2026-02-21T17:42:13.892805+00:00, Zone:UTC+00:00, NextTime:null, NextOffset:null
+[I/OCPP] 02-21 17:42:13 cmd: Heartbeat Resp, time: 2026-02-21T17:42:13.892805+00:00
+[I/Websocket] 02-21 17:42:30 WebSocket PING/PONG
+[I/DBG] 02-21 17:42:30 SEND OK: 10==10
+[I/Websocket] 02-21 17:42:40 WebSocket PING
+[I/DBG] 02-21 17:42:40 SEND OK: 6==6
+[I/Websocket] 02-21 17:42:40 WebSocket PONG
+[I/Websocket] 02-21 17:42:50 WebSocket PING/PONG
+[I/DBG] 02-21 17:42:50 SEND OK: 10==10
+[I/Websocket] 02-21 17:43:10 WebSocket PING/PONG
+[I/DBG] 02-21 17:43:10 SEND OK: 10==10
+[I/Websocket] 02-21 17:43:10 WebSocket PING
+[I/DBG] 02-21 17:43:10 SEND OK: 6==6
+[I/Websocket] 02-21 17:43:11 WebSocket PONG
+[I/OCPP] 02-21 17:43:15 cmd: HeartbeatData
+[I/DBG] 02-21 17:43:15 SEND OK: 51==51
+[I/OCPP] 02-21 17:43:15 ServerTime:2026-02-21T17:43:15.666113+00:00, Zone:UTC+00:00, NextTime:null, NextOffset:null
+[I/OCPP] 02-21 17:43:15 cmd: Heartbeat Resp, time: 2026-02-21T17:43:15.666113+00:00
+[I/OtherTask] 02-21 17:43:27 CP1:12.9, PP1:2999(0), leakage1:0, charge1_state:Faulted, PE:205V, PEN:158mA
+[I/OtherTask] 02-21 17:43:27 Relay:[1,0], Lock:[1,0], Temp[73,36]
+[I/Websocket] 02-21 17:43:30 WebSocket PING/PONG
+[I/DBG] 02-21 17:43:30 SEND OK: 10==10
+[I/OtherTask] 02-21 17:43:32 Gun 1: Energy:[0->0], Volt:[0,0,0] V, Curr:[0,0,0] A, Power:[0,0,0] W
+[I/Websocket] 02-21 17:43:41 WebSocket PING
+[I/DBG] 02-21 17:43:41 SEND OK: 6==6
+[I/Websocket] 02-21 17:43:41 WebSocket PONG
+[I/Websocket] 02-21 17:43:50 WebSocket PING/PONG
+[I/DBG] 02-21 17:43:50 SEND OK: 10==10
+[I/Websocket] 02-21 17:44:11 WebSocket PING/PONG
+[I/DBG] 02-21 17:44:11 SEND OK: 10==10
+[I/Websocket] 02-21 17:44:11 WebSocket PING
+[I/DBG] 02-21 17:44:11 SEND OK: 6==6
+[I/Websocket] 02-21 17:44:11 WebSocket PONG
+[I/OCPP] 02-21 17:44:15 cmd: HeartbeatData
+[I/DBG] 02-21 17:44:15 SEND OK: 51==51
+[I/OCPP] 02-21 17:44:15 ServerTime:2026-02-21T17:44:15.248714+00:00, Zone:UTC+00:00, NextTime:null, NextOffset:null
+[I/OCPP] 02-21 17:44:15 cmd: Heartbeat Resp, time: 2026-02-21T17:44:15.248714+00:00
+[I/Websocket] 02-21 17:44:31 WebSocket PING/PONG
+[I/DBG] 02-21 17:44:31 SEND OK: 10==10
+[I/Websocket] 02-21 17:44:40 WebSocket PING
+[I/DBG] 02-21 17:44:41 SEND OK: 6==6
+[I/Websocket] 02-21 17:44:41 WebSocket PONG
+[I/Websocket] 02-21 17:44:51 WebSocket PING/PONG
+[I/DBG] 02-21 17:44:51 SEND OK: 10==10
+[I/Websocket] 02-21 17:45:11 WebSocket PING/PONG
+[I/DBG] 02-21 17:45:11 SEND OK: 10==10
+[I/Websocket] 02-21 17:45:11 WebSocket PING
+[I/DBG] 02-21 17:45:11 SEND OK: 6==6
+[I/Websocket] 02-21 17:45:11 WebSocket PONG
+[I/OCPP] 02-21 17:45:15 cmd: HeartbeatData
+[I/DBG] 02-21 17:45:15 SEND OK: 51==51
+[I/OCPP] 02-21 17:45:15 ServerTime:2026-02-21T17:45:15.908208+00:00, Zone:UTC+00:00, NextTime:null, NextOffset:null
+[I/OCPP] 02-21 17:45:15 cmd: Heartbeat Resp, time: 2026-02-21T17:45:15.908208+00:00
+[I/Websocket] 02-21 17:45:31 WebSocket PING/PONG
+[I/DBG] 02-21 17:45:31 SEND OK: 10==10
+[I/Websocket] 02-21 17:45:40 WebSocket PING
+[I/DBG] 02-21 17:45:40 SEND OK: 6==6
+[I/Websocket] 02-21 17:45:41 WebSocket PONG
+[I/OtherTask] 02-21 17:45:42 CP1:12.9, PP1:2999(0), leakage1:0, charge1_state:Faulted, PE:205V, PEN:149mA
+[I/OtherTask] 02-21 17:45:42 Relay:[1,0], Lock:[1,0], Temp[72,37]
+[I/OtherTask] 02-21 17:45:47 Gun 1: Energy:[0->0], Volt:[0,0,0] V, Curr:[0,0,0] A, Power:[0,0,0] W
+[I/Websocket] 02-21 17:45:51 WebSocket PING/PONG
+[I/DBG] 02-21 17:45:51 SEND OK: 10==10

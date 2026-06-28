@@ -43,33 +43,6 @@ create_directory "/var/log/jofo/$SYSTEM_NAME" "$USER:$GROUP"
 echo "DONE"
 
 ################################################################################
-# Creating virtual environment
-################################################################################
-
-echo "Creating virtual environment..."
-
-python3 -m venv "/opt/jofo/$SYSTEM_NAME"
-
-echo "Activating environment..."
-
-source "/opt/jofo/$SYSTEM_NAME/bin/activate"
-
-echo "DONE"
-
-################################################################################
-# Install Python modules
-################################################################################
-
-echo "Installing Python modules..."
-
-pip3 install -r requirements.txt
-
-echo "Deactivating environment..."
-deactivate
-
-echo "DONE"
-
-################################################################################
 # Copy application files
 ################################################################################
 
@@ -87,15 +60,6 @@ cp -i -r -v "conf/"* "/etc/opt/jofo/$SYSTEM_NAME"
 echo "DONE"
 
 ################################################################################
-# Set up dayly log rotate
-################################################################################
-
-echo "Configuring log rotate..."
-
-# Copy with interactive on config files
-sudo cp -i -v "scripts/$SYSTEM_NAME" "/etc/logrotate.d/"
-
-################################################################################
 # Install as service
 ################################################################################
 
@@ -106,6 +70,53 @@ sudo cp -v "scripts/jofo-$SYSTEM_NAME.service" "/etc/systemd/system/"
 sudo systemctl enable "jofo-$SYSTEM_NAME.service"
 
 echo "DONE"
+
+################################################################################
+# Installing python/venv
+################################################################################
+
+echo "Installing python/venv..."
+sudo add-apt-repository ppa:deadsnakes/ppa -y
+sudo apt update -y
+sudo apt install python3.12 -y
+sudo apt install python3.12-venv -y
+python3.12 -m ensurepip --upgrade
+
+
+################################################################################
+# Creating virtual environment
+################################################################################
+
+echo "Creating virtual environment..."
+python3.12 -m venv "/opt/jofo/$SYSTEM_NAME"
+
+echo "Activating environment..."
+
+source "/opt/jofo/$SYSTEM_NAME/bin/activate"
+
+echo "DONE"
+
+################################################################################
+# Install Python modules
+################################################################################
+
+echo "Installing Python modules..."
+
+pip3.12 install -r requirements.txt
+
+echo "Deactivating environment..."
+deactivate
+
+echo "DONE"
+
+################################################################################
+# Set up dayly log rotate
+################################################################################
+
+echo "Configuring log rotate..."
+
+# Copy with interactive on config files
+sudo cp -i -v "scripts/$SYSTEM_NAME" "/etc/logrotate.d/"
 
 echo
 echo "================================================================================"
