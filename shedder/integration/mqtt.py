@@ -17,7 +17,9 @@ class MQTTClient:
         self.root_topic = root_topic
         self.keepalive = keepalive
         self.logger = create_logger(name='mqtt_client', level=log_level, log_dir=log_dir)
-        self.client = mqtt_client.Client()
+        # paho-mqtt 2.x requires an explicit callback API version. VERSION1 keeps
+        # the 1.x callback signatures used below (on_connect/on_message).
+        self.client = mqtt_client.Client(mqtt_client.CallbackAPIVersion.VERSION1)
 
         self.client.on_message = self.on_message
         self.client.on_connect = self.on_connect

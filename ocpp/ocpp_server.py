@@ -116,7 +116,7 @@ class OcppServer:
         else:
             logger.warning(
                 "Protocols Mismatched | Expected: %s, Client: %s | Closing",
-                websocket.available_subprotocols,
+                websocket.protocol.available_subprotocols,
                 requested_protocols,
             )
             return await websocket.close()

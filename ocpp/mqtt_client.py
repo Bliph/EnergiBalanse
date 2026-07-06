@@ -48,7 +48,11 @@ class OcppMqttClient:
         self._command_callback = command_callback
         self._connected = False
 
-        self._client = paho_mqtt.Client(client_id=config.MQTT_CLIENT_ID)
+        # paho-mqtt 2.x requires an explicit callback API version. VERSION1 keeps
+        # the 1.x callback signatures used below (_on_connect/_on_disconnect/_on_message).
+        self._client = paho_mqtt.Client(
+            paho_mqtt.CallbackAPIVersion.VERSION1, client_id=config.MQTT_CLIENT_ID
+        )
         self._client.on_connect = self._on_connect
         self._client.on_disconnect = self._on_disconnect
         self._client.on_message = self._on_message

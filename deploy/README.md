@@ -111,9 +111,12 @@ docker compose -f deploy/docker-compose.yml up -d         # apply docker.env edi
 docker compose -f deploy/docker-compose.yml down          # stop (keeps the volume)
 ```
 
-Settings precedence: `docker.env` env vars override `conf/shedder.conf`. To change
-a secret/connection value, edit `docker.env` and run `up -d`. To change tuning
-(topics, location, timings), edit `conf/shedder.conf` and redeploy.
+Settings precedence: `docker.env` env vars override `conf/shedder.conf`. The
+connection/secrets, the measurement + root topics (`MEASUREMENT_TOPIC`,
+`ROOT_TOPIC`) and the site coordinates (`LOCATION_LAT`, `LOCATION_LON`) can all be
+set in `docker.env` — see the template. Edit it and run `up -d`. The remaining
+tuning (timings, deadbands, the other topic element names) lives only in
+`conf/shedder.conf`; change it there and redeploy.
 
 ---
 

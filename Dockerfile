@@ -7,7 +7,7 @@
 # Outbound-only: it dials an external MQTT broker and the Tesla REST API and
 # does not listen for inbound connections, so the image EXPOSEs no ports.
 
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 # Stream logs straight to Docker, skip .pyc clutter, keep pip quiet and cache-free.
 ENV PYTHONUNBUFFERED=1 \
@@ -22,7 +22,7 @@ ENV STATE_DIR=/state
 
 WORKDIR /app
 
-# All wheels are prebuilt for cp312 (PyYAML 6.0.2, paho-mqtt, TeslaPy, ...), so no
+# All wheels are prebuilt for cp314 (PyYAML 6.0.3, paho-mqtt, TeslaPy, ...), so no
 # C toolchain is needed. If a future dependency lacks a wheel, add an apt-get
 # build-essential layer here before the pip install.
 

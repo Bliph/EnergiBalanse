@@ -1,5 +1,5 @@
 # TeslaPy: the Bliph fork (branch http2-transport), pinned to a commit.
-# Installed from GitHub's source tarball so the python:3.12-slim image needs no
+# Installed from GitHub's source tarball so the python:3.14-slim image needs no
 # `git` binary. The fork's install_requires pulls its own deps automatically
 # (httpx[http2], requests, requests_oauthlib, websocket-client).
 # To deploy fork changes: push to github.com/Bliph/TeslaPy, then replace the SHA
@@ -7,10 +7,16 @@
 # it up). Upstream for reference: git+https://github.com/tdorssers/TeslaPy.git
 TeslaPy @ https://github.com/Bliph/TeslaPy/archive/3ec34d1d4a186d9c5d95aa6e9f0090e7da7c5743.tar.gz
 # TeslaPy==2.9.2   # (PyPI release — replaced by the fork above)
-# PyYAML 5.3.1 ships no Linux wheel and fails to build from sdist on Python 3.12
-# (Cython 3 / CPython 3.12 C-API). 6.0.2 has cp312 manylinux wheels and is a
+# PyYAML 5.3.1 ships no Linux wheel and fails to build from sdist on modern
+# CPython (Cython 3 / recent C-API). 6.0.3 has cp314 manylinux wheels and is a
 # drop-in here — the code only uses yaml.safe_load / yaml.dump.
-PyYAML==6.0.2
-paho-mqtt==1.5.1
+PyYAML==6.0.3
+# paho-mqtt 2.x changed the Client() constructor to require a callback API
+# version; the clients pass CallbackAPIVersion.VERSION1 to keep the 1.x
+# callback signatures (see shedder/integration/mqtt.py, ocpp/mqtt_client.py).
+paho-mqtt==2.1.0
 ocpp==2.1.0
-websockets>=13.0,<14
+# websockets 14+ makes the new asyncio server API the default (websocket.request,
+# single-arg handler) which the OCPP server already uses; ocpp 2.1.0 no longer
+# constrains websockets, so the old <14 cap is dropped.
+websockets==16.0
