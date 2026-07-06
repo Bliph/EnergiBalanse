@@ -175,10 +175,11 @@ def get_settings(cfg_dir):
 ###########################################################
 # Override file settings from the environment.
 #
-# Lets secrets / connection details (and log level) be supplied via environment
-# variables instead of being committed to shedder.conf — used by the container
-# deployment (see deploy/docker.env). An unset or empty variable leaves the
-# value from the config file untouched, so local file-based runs are unaffected.
+# Lets connection details, secrets, the measurement/root topics, the site
+# coordinates and the log level be supplied via environment variables instead of
+# being committed to shedder.conf — used by the container deployment (see
+# deploy/docker.env). An unset or empty variable leaves the value from the config
+# file untouched, so local file-based runs are unaffected.
 #
 def apply_env_overrides(settings):
     overrides = (
@@ -186,6 +187,10 @@ def apply_env_overrides(settings):
         ('mqtt_server', 'port', 'MQTT_PORT'),
         ('mqtt_server', 'username', 'MQTT_USERNAME'),
         ('mqtt_server', 'password', 'MQTT_PASSWORD'),
+        ('mqtt_client', 'measurement_topic', 'MEASUREMENT_TOPIC'),
+        ('mqtt_client', 'root_topic', 'ROOT_TOPIC'),
+        ('location', 'lat', 'LOCATION_LAT'),
+        ('location', 'lon', 'LOCATION_LON'),
         ('tesla_client', 'user_id', 'TESLA_EMAIL'),
         ('logging', 'log_level', 'LOG_LEVEL'),
     )
