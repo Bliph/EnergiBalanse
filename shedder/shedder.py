@@ -9,6 +9,7 @@ from pathlib import Path
 import os
 import sys
 import yaml
+import requests
 from integration.mqtt import MQTTClient
 from data.energy_calc import EnergyCalculator
 from charge_controller import ChargeController
@@ -152,6 +153,15 @@ def get_settings(cfg_dir):
         'logging': {
             'log_level': 'DEBUG',
             'log_dir': '.'
+        },
+        'healthcheck': {
+            # healthchecks.io ping URL for Tesla auth health. Blank disables
+            # pinging (see ping_healthcheck).
+            'tesla_auth_url': '',
+            # How often (seconds) the main loop re-verifies Tesla auth and pings
+            # the check. Set the check's period on healthchecks.io a bit LONGER
+            # than this so a genuinely missed ping trips the alert.
+            'ping_period': 900
         }
     }
     settings = configparser.ConfigParser()
@@ -193,6 +203,8 @@ def apply_env_overrides(settings):
         ('location', 'lon', 'LOCATION_LON'),
         ('tesla_client', 'user_id', 'TESLA_EMAIL'),
         ('logging', 'log_level', 'LOG_LEVEL'),
+        ('healthcheck', 'tesla_auth_url', 'HEALTHCHECK_TESLA_AUTH_URL'),
+        ('healthcheck', 'ping_period', 'HEALTHCHECK_PING_PERIOD'),
     )
     for section, key, env_name in overrides:
         value = os.environ.get(env_name)
@@ -200,6 +212,28 @@ def apply_env_overrides(settings):
             if not settings.has_section(section):
                 settings.add_section(section)
             settings.set(section, key, value)
+
+###########################################################
+# Ping a healthchecks.io check (https://healthchecks.io).
+#
+# Used to externally monitor the Tesla authentication / first API call. Ping the
+# base URL on success, base_url + '/start' before the attempt and
+# base_url + '/fail' on failure (with the error passed in `data` shown on the
+# check's dashboard). Monitoring must never break the app, so every network or
+# other error is swallowed. A blank base_url disables pinging, so local
+# file-based runs without a check configured are unaffected.
+#
+def ping_healthcheck(base_url, suffix='', data=None, timeout=10):
+    if not base_url:
+        return
+    url = base_url.rstrip('/') + suffix
+    try:
+        requests.post(url, data=(data or '')[:10000], timeout=timeout)
+    except Exception as e:
+        try:
+            logger.warning('Healthcheck ping to %s failed: %s', url, e)
+        except Exception:
+            pass
 
 ###########################################################
 # Find vehicle with highest/lowest charge power
@@ -302,23 +336,36 @@ if __name__ == '__main__':
     mqtt_client.set_input(input=input, topics=topics)
     mqtt_client.start()
 
-    tesla = teslapy.Tesla(
-        email=settings.get('tesla_client', 'user_id'),
-        cache_file=str(Path(state_dir) / 'tesla_cache.json')
-    )
+    # Tesla auth + first API call, wrapped in a healthchecks.io ping so a broken
+    # token / auth failure is surfaced externally. '/start' marks the attempt, a
+    # plain ping marks success, '/fail' (with the error) marks failure. This is
+    # the immediate signal on every (re)start; the main loop below re-verifies on
+    # a schedule so the check keeps getting pinged while the service runs.
+    hc_url = settings.get('healthcheck', 'tesla_auth_url', fallback='')
+    ping_healthcheck(hc_url, '/start')
+    try:
+        tesla = teslapy.Tesla(
+            email=settings.get('tesla_client', 'user_id'),
+            cache_file=str(Path(state_dir) / 'tesla_cache.json')
+        )
 
-    if not tesla.authorized:
-        logger.debug('URL: {}'.format(tesla.authorization_url()))
-        tesla.fetch_token(authorization_response=input('Enter URL after authentication: '))
+        if not tesla.authorized:
+            logger.debug('URL: {}'.format(tesla.authorization_url()))
+            tesla.fetch_token(authorization_response=input('Enter URL after authentication: '))
 
-    # WORKAROUND: Ref https://github.com/tdorssers/TeslaPy/pull/158
-    # https://github.com/tdorssers/TeslaPy/issues/156
-    # https://github.com/teslamate-org/teslamate/issues/3629
-    #    vehicles = tesla.vehicle_list()
-    #    vehicles = [teslapy.Vehicle(vehicle=v, tesla=tesla) for v in tesla.api('PRODUCT_LIST')['response']]
-    vehicles = []
-    for v in tesla.api('PRODUCT_LIST')['response']:
-        vehicles.append(teslapy.Vehicle(vehicle=v, tesla=tesla))
+        # WORKAROUND: Ref https://github.com/tdorssers/TeslaPy/pull/158
+        # https://github.com/tdorssers/TeslaPy/issues/156
+        # https://github.com/teslamate-org/teslamate/issues/3629
+        #    vehicles = tesla.vehicle_list()
+        #    vehicles = [teslapy.Vehicle(vehicle=v, tesla=tesla) for v in tesla.api('PRODUCT_LIST')['response']]
+        vehicles = []
+        for v in tesla.api('PRODUCT_LIST')['response']:
+            vehicles.append(teslapy.Vehicle(vehicle=v, tesla=tesla))
+    except Exception as e:
+        ping_healthcheck(hc_url, '/fail', data='Tesla auth failed: {}'.format(e))
+        raise
+    else:
+        ping_healthcheck(hc_url)
 
     cc = ChargeController(
         vehicles=vehicles,
@@ -346,6 +393,10 @@ if __name__ == '__main__':
     try:
         last_adjust = time.time()
         last_adjust_sun = time.time()
+        # Tesla-auth heartbeat throttle for healthchecks.io. Seed it to "now" so
+        # the first re-verification happens ping_period after the startup ping.
+        last_healthcheck = time.time()
+        hc_ping_period = settings.getint('healthcheck', 'ping_period', fallback=900)
 
         while True:
             included_cars = dynamic_settings.get('control').get('included_cars')
@@ -463,6 +514,21 @@ if __name__ == '__main__':
                             # cc.adjust(cc.get_min_vehicle(), up=True)
                             cc.adjust(cc.get_random_vehicle(), up=True)
                             last_adjust = time.time()
+
+            # Periodic Tesla-auth heartbeat for healthchecks.io. A cheap
+            # authenticated call (PRODUCT_LIST — the same one used at startup, and
+            # it does not wake vehicles) proves the token is still valid: ping
+            # success, or '/fail' with the error. The per-vehicle polling above
+            # swallows API errors, so this is the signal that actually reflects
+            # auth health. Never let a failure here break the control loop.
+            if hc_url and time.time() - last_healthcheck >= hc_ping_period:
+                try:
+                    tesla.api('PRODUCT_LIST')
+                    ping_healthcheck(hc_url)
+                except Exception as e:
+                    ping_healthcheck(hc_url, '/fail', data='Tesla auth check failed: {}'.format(e))
+                    logger.warning('Tesla auth healthcheck failed: {}'.format(e))
+                last_healthcheck = time.time()
 
             time.sleep(settings.getint('times', 'loop_sleep'))
     except KeyboardInterrupt:
