@@ -14,6 +14,7 @@ from integration.mqtt import MQTTClient
 from data.energy_calc import EnergyCalculator
 from charge_controller import ChargeController
 import teslapy
+from oauthlib.oauth2.rfc6749.errors import LoginRequired, InvalidGrantError
 from log_handler import create_logger
 
 # https://tesla-api.timdorr.com/
@@ -230,10 +231,10 @@ def ping_healthcheck(base_url, suffix='', data=None, timeout=10):
     try:
         requests.post(url, data=(data or '')[:10000], timeout=timeout)
     except Exception as e:
-        try:
-            logger.warning('Healthcheck ping to %s failed: %s', url, e)
-        except Exception:
-            pass
+        # Fetch the configured logger by name rather than the module-global
+        # `logger` (only bound inside __main__), so this is safe regardless of
+        # call context and the warning is actually emitted.
+        logging.getLogger(APP_NAME).warning('Healthcheck ping to %s failed: %s', url, e)
 
 ###########################################################
 # Find vehicle with highest/lowest charge power
@@ -361,6 +362,20 @@ if __name__ == '__main__':
         vehicles = []
         for v in tesla.api('PRODUCT_LIST')['response']:
             vehicles.append(teslapy.Vehicle(vehicle=v, tesla=tesla))
+    except (LoginRequired, InvalidGrantError) as e:
+        # The cached Tesla SSO refresh token is expired/revoked, so teslapy can't
+        # renew it — this needs a fresh interactive login, which cannot happen
+        # in-process (see the input() shadowing note above / container reseed in
+        # deploy/docker-compose.yml). Exit with a clear message instead of a raw
+        # oauthlib traceback, and still flag the failure to healthchecks.io.
+        ping_healthcheck(hc_url, '/fail', data='Tesla token expired — re-authenticate: {}'.format(e))
+        logger.error(
+            'Tesla token expired — re-authenticate to refresh the token cache %s. '
+            'Run shedder/tesla_auth_test.py to obtain a new SSO refresh token and '
+            'reseed the cache (in the container: reseed it on the state volume). '
+            '[%s: %s]',
+            str(Path(state_dir) / 'tesla_cache.json'), type(e).__name__, e)
+        sys.exit(1)
     except Exception as e:
         ping_healthcheck(hc_url, '/fail', data='Tesla auth failed: {}'.format(e))
         raise
